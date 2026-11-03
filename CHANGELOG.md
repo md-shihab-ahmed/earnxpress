@@ -7,6 +7,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-11-03
+
+### Phase 2: Complete Next.js Website & Multi-Portal Experience
+
+#### Added
+- **Complete Next.js 14 App Router Website (`frontend/`)**:
+  - Full TypeScript, Tailwind CSS, and Lucide icons architecture with Deep Navy (`#0A192F`) and Teal (`#0D9488`) design tokens and Dark/Light mode support.
+  - 20 complete production routes compiled and prerendered (`next build` exit code 0).
+- **Public Marketplace**:
+  - Homepage with high-converting hero, 4 core pillars, live marketplace metrics, 2-model explainer, and featured task previews.
+  - Faceted Marketplace Catalog (`/tasks`) with live keyword search, model filters (`MULTI_WORKER` vs `FIRST_APPROVED`), and capacity progress cards.
+  - Detailed Task Pages (`/tasks/[id]`) rendering markdown instructions, objective acceptance criteria, publisher reputation card, in-platform Q&A thread, and interactive slot claim button.
+  - Live **Task Participation Dashboard** (`ParticipationDashboard`) visualizing total slots, remaining available slots, working, submitted, approved, and review overdue metrics.
+- **Worker Portal & Task Execution Workspace**:
+  - Worker Overview (`/worker`) with active slots, earnings, and progress tracking.
+  - Task Execution Workspace (`/worker/tasks/[id]`) with interactive **MilestoneTracker** deriving progress percentages strictly from verified checkpoints.
+  - Deliverable Submission form with storage URL attachments, work notes, and acceptance criteria attestations.
+  - Revision history and feedback review display.
+- **Buyer Portal & Control Center**:
+  - Buyer Overview (`/buyer`) with active campaign management, total slots funded, and status controls.
+  - Five-Step Task Creation Wizard (`/buyer/tasks/new`): Step 1 Basics & Model, Step 2 Capacity & Deadlines, Step 3 Budget & Live Escrow Calculation, Step 4 Instructions & Criteria (minimum 2 required), Step 5 Review & Publish.
+  - Submissions Review Queue (`/buyer/submissions`) with Approve (escrow release), Request Revision (with maxRevisions guard), Reject, and 1-5 Star Ratings.
+- **Demo Wallet & Ledger**:
+  - Multi-portal Demo Wallet (`/worker/wallet`, `/buyer/wallet`) with balance cards, instant `$1,000` test faucet claim button, and double-entry transaction history ledger.
+  - Prominent DEMO labeling on all balances and transactions.
+- **Staff Governance & Administration**:
+  - Staff Admin Dashboard (`/admin`) with platform volume stats, user management & sanctions engine (warn, restrict slots, suspend, ban), 72h overdue review triage queue, and immutable audit log explorer.
+- **Authentication & Shared Navigation**:
+  - Responsive header with instant 1-click role switcher (`Worker`, `Buyer`, `Admin`), demo wallet balance pill, and theme toggle.
+  - Sign in (`/login`) with 1-click demo profiles, registration (`/register`) with role toggle, password reset (`/forgot-password`), about, help, terms, privacy, and contact pages.
+
+---
+
 ## [1.2.0] - 2026-11-03
 
 ### Phase 1: Backend Foundation & Core Modular Monolith

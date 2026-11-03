@@ -113,3 +113,39 @@ npm run start:dev
 - **OpenAPI / Swagger Explorer**: `http://localhost:4000/api/docs`
 - **Health Probe**: `http://localhost:4000/api/v1/health`
 - **Demo Financial Faucet**: `POST http://localhost:4000/api/v1/demo-finance/faucet`
+
+---
+
+## 6. Frontend Website & Quickstart
+
+The frontend is a production **Next.js 14 App Router** application built under [`frontend/`](frontend/):
+
+```bash
+# 1. Enter frontend directory
+cd frontend
+
+# 2. Run production build
+npm run build
+
+# 3. Launch development server
+npm run dev
+# Website available at: http://localhost:3000
+```
+
+### Complete Route Map
+| Route | Description |
+| :--- | :--- |
+| `/` | Homepage with hero, live metrics, pillars, and featured task previews. |
+| `/tasks` | Open Marketplace Catalog with search and model filters. |
+| `/tasks/[id]` | Task Details page with **Task Participation Dashboard** & slot claim. |
+| `/worker` | Worker Dashboard with active slots and execution status. |
+| `/worker/tasks/[id]` | Task Execution Workspace with **MilestoneTracker** & submission form. |
+| `/worker/wallet` | Demo Wallet with **$1,000 Faucet Button** & transaction ledger. |
+| `/buyer` | Buyer Dashboard with active campaign management. |
+| `/buyer/tasks/new` | **Five-Step Task Creation Wizard** with live escrow calculation. |
+| `/buyer/submissions`| Submissions Review Queue (Approve payout, Revision, Reject). |
+| `/buyer/wallet` | Buyer Demo Wallet for campaign funding. |
+| `/admin` | Staff Governance Console (sanctions, overdue review triage, audit explorer). |
+| `/login` | Sign In with **1-click demo profiles** (Worker, Buyer, Admin). |
+| `/register` | Registration with role toggle (Worker vs Buyer). |
+| `/about`, `/help` | Platform mission, rules, and 72h SLA FAQ. |
