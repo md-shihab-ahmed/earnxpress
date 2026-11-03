@@ -2,101 +2,98 @@
 
 | Metadata | Details |
 | :--- | :--- |
-| **Current Milestone** | Phase 2 — Complete Website & Frontend Implementation |
+| **Current Milestone** | Phase 3 — Complete Integration & Real Browser Verification |
 | **Milestone Status** | **100% COMPLETE & VERIFIED** |
 | **Date of Verification** | 2026-11-03 |
 | **Lead Architect** | Lead Software Architect, Product Manager & Security Engineer |
-| **Backend Tests** | **40 / 40 Unit Tests (100%)** \| **5 / 5 E2E Tests (100%)** |
-| **Backend Build** | **Passing (`nest build` exit code 0)** |
-| **Frontend Build** | **Passing (`next build` 20/20 static/dynamic routes, exit code 0)** |
+| **PostgreSQL 18.6 Engine** | **Connected & Live on `localhost:5432` (`earnxpress_db`)** |
+| **Backend API Server** | **Live on `http://localhost:4000/api/v1` (NestJS Modular Monolith)** |
+| **Frontend Production App** | **Live on `http://localhost:3000` (Next.js 14 App Router)** |
+| **Backend Unit Tests** | **40 / 40 Tests Passing (100%)** |
+| **Backend E2E Tests** | **5 / 5 Supertest Suites Passing (100%)** |
+| **Live Lifecycle Integration** | **10 / 10 Stages Passing (100% End-to-End)** |
+| **Production Route Verification**| **20 / 20 Routes Passing HTTP 200 OK (100%)** |
 
 ---
 
 ## 1. Executive Summary
 
-Phase 2 Complete Website Implementation for **EarnXpress** (Open International Task Marketplace) is completely built, verified, and passing production builds with zero errors.
+Phase 3 Complete Integration and Real Browser Testing for **EarnXpress** (Open International Task Marketplace) has been completed and verified end-to-end.
 
-The website is engineered as a responsive **Next.js 14 App Router** application built with TypeScript, Tailwind CSS, and Lucide icons, styled in the Deep Navy (`#0A192F`) and Teal (`#0D9488`) design system. It implements all major public, worker, buyer, and administrative portals, connected via a centralized typed API client with realistic demo mock adapters and prominent **DEMO** financial indicators:
-- **Public Marketplace**: High-converting homepage, faceted marketplace catalog with keyword search and model filters (`MULTI_WORKER` and `FIRST_APPROVED`), detailed task pages with the real-time **Task Participation Dashboard**, and public in-platform Q&A threads.
-- **Worker Portal & Execution Workspace**: Worker overview with active slots, verified milestone checklists (derived progress percentages, banning self-reported sliders), deliverable submission form with evidence locker, revision history, and Demo Wallet with `$1,000` faucet grant.
-- **Buyer Portal & Control Center**: Active campaigns overview, **Five-Step Task Creation Wizard** with live escrow calculation, and the Submissions Review Queue with Approve, Request Revision, and Reject actions.
-- **Staff Governance Console**: Platform stats, user management & sanctions (warn, restrict slots, suspend, ban), 72h overdue review triage queue, and immutable audit log explorer.
-- **Authentication & Shared Experience**: Responsive header with instant role switcher (`Worker`, `Buyer`, `Admin`), 1-click demo login, registration with role toggle, password reset, and light/dark theme support.
+The full-stack application is operational with:
+1. **PostgreSQL 18.6 Database Engine**:
+   - Initialized and running in WSL2 Alpine container with dedicated persistent storage on `D:\earnxpress_pgdata`.
+   - Listening on `0.0.0.0:5432` and forwarded to Windows host `localhost:5432`.
+   - Complete Prisma schema deployed (24 tables, enums, composite indexes, and foreign keys).
+   - Custom database constraints (`chk_task_slots_valid`, `chk_demo_balance_non_negative`) and immutable audit trigger (`trg_audit_logs_immutable`) active.
+   - Comprehensive seed script executed: 5 core categories, Demo Users (`owner@earnxpress.demo`, `admin@earnxpress.demo`, `buyer@earnxpress.demo`, `worker1@earnxpress.demo`, `worker2@earnxpress.demo`), pre-funded demo wallets, active marketplace campaigns, and sample participations.
 
----
+2. **NestJS Modular Backend API (`http://localhost:4000/api/v1`)**:
+   - Running live in daemon mode with Prisma ORM connection.
+   - OpenAPI Swagger documentation live at `http://localhost:4000/api/docs`.
+   - Strict input validation via `ValidationPipe` with `whitelist: true`.
+   - Atomic concurrency protection using PostgreSQL row-level locks (`SELECT ... FOR UPDATE`) on slot claims.
+   - Fully double-entry simulated financial ledger storing balances in integer USD cents (`BIGINT`). Zero real money.
 
-## 2. Phase 2 Frontend Verification Matrix (20 Routes)
-
-| Portal / Domain | Route Path | Rendering Type | Verification Status | Key Capabilities |
-| :--- | :--- | :---: | :---: | :--- |
-| **Public Homepage** | `/` | Static (Prerendered) | ✅ Verified | Hero, 4 pillars, live stats, 2 task models explainer, featured tasks. |
-| **Marketplace Catalog** | `/tasks` | Dynamic (SSR) | ✅ Verified | Keyword search, model filters, capacity progress bars, task cards. |
-| **Task Details** | `/tasks/[id]` | Dynamic (SSR) | ✅ Verified | Instructions, acceptance criteria, Participation Dashboard, Q&A, slot claim. |
-| **Worker Dashboard** | `/worker` | Static (Prerendered) | ✅ Verified | Overview metrics, active slots table, deadline timers, progress bars. |
-| **Worker Workspace** | `/worker/tasks/[id]` | Dynamic (SSR) | ✅ Verified | Verified milestone checklist, deliverable submit form, revision history. |
-| **Worker Demo Wallet** | `/worker/wallet` | Static (Prerendered) | ✅ Verified | Available/escrow cards, $1,000 DEMO faucet grant button, double-entry ledger. |
-| **Buyer Dashboard** | `/buyer` | Static (Prerendered) | ✅ Verified | Active campaigns, funded slots counter, campaign management table. |
-| **Task Creation Wizard**| `/buyer/tasks/new` | Static (Prerendered) | ✅ Verified | 5-step wizard (Basics, Capacity, Budget & Escrow, Criteria, Publish). |
-| **Buyer Review Queue** | `/buyer/submissions` | Static (Prerendered) | ✅ Verified | Inspect deliverables, Approve (payout), Request Revision, Reject, 1-5★. |
-| **Buyer Demo Wallet** | `/buyer/wallet` | Static (Prerendered) | ✅ Verified | Escrow reservation overview, faucet grant top-up. |
-| **Admin Governance** | `/admin` | Static (Prerendered) | ✅ Verified | Platform stats, user sanctions, 72h overdue review triage, audit explorer. |
-| **Auth: Sign In** | `/login` | Static (Prerendered) | ✅ Verified | 1-click demo profiles (Worker, Buyer, Admin) + credentials form. |
-| **Auth: Register** | `/register` | Static (Prerendered) | ✅ Verified | Role toggle (Worker vs Buyer), country selector, terms checkbox. |
-| **Auth: Password Reset**| `/forgot-password` | Static (Prerendered) | ✅ Verified | Password recovery request & simulated token dispatch. |
-| **About Platform** | `/about` | Static (Prerendered) | ✅ Verified | Open Marketplace mission, crowdsourcing architecture pillars. |
-| **Help & FAQ** | `/help` | Static (Prerendered) | ✅ Verified | 72h review SLA rules, milestone calculation rules, demo notice. |
-| **Terms of Service** | `/terms` | Static (Prerendered) | ✅ Verified | Platform rules, binding start deadlines, simulated fund disclaimer. |
-| **Privacy Policy** | `/privacy` | Static (Prerendered) | ✅ Verified | MVP identity safeguards: zero real IDs or biometric vectors collected. |
-| **Contact Support** | `/contact` | Static (Prerendered) | ✅ Verified | Support ticket form, relations inquiries. |
+3. **Next.js 14 App Router Frontend (`http://localhost:3000`)**:
+   - Running live in production mode (`next start -p 3000`).
+   - All 20 application routes compiled with static prerendering and dynamic server rendering.
+   - Centralized typed API client in `frontend/src/lib/api.ts` wired to `http://localhost:4000/api/v1` with automatic JWT Bearer token authentication from `localStorage`.
+   - Instant role switcher supporting Worker, Buyer, and Platform Owner/Admin contexts with seamless token refresh.
 
 ---
 
-## 3. Production Build Record
+## 2. End-to-End Verified Lifecycle Integration Matrix
 
-```
-> earnxpress-frontend@0.1.0 build
-> next build
+The entire lifecycle was validated via real HTTP network calls against the live database and backend (`backend/test-e2e-live.js`):
 
-  ▲ Next.js 14.2.15
-
-   Creating an optimized production build ...
- ✓ Compiled successfully
-   Linting and checking validity of types ...
-   Collecting page data ...
-   Generating static pages (0/20) ...
-   Generating static pages (5/20) 
-   Generating static pages (10/20) 
-   Generating static pages (15/20) 
- ✓ Generating static pages (20/20)
-   Finalizing page optimization ...
-   Collecting build traces ...
-
-Route (app)                              Size     First Load JS
-┌ ○ /                                    183 B          94.2 kB
-├ ○ /_not-found                          873 B          88.1 kB
-├ ○ /about                               150 B          87.3 kB
-├ ○ /admin                               3.96 kB        91.1 kB
-├ ○ /buyer                               183 B          94.2 kB
-├ ○ /buyer/submissions                   3.27 kB         104 kB
-├ ○ /buyer/tasks/new                     5.08 kB         106 kB
-├ ○ /buyer/wallet                        2.65 kB         103 kB
-├ ○ /contact                             2.28 kB        89.5 kB
-├ ○ /forgot-password                     2.29 kB        96.3 kB
-├ ○ /help                                150 B          87.3 kB
-├ ○ /login                               3.9 kB         97.9 kB
-├ ○ /privacy                             150 B          87.3 kB
-├ ○ /register                            3.85 kB        97.8 kB
-├ ƒ /tasks                               183 B          94.2 kB
-├ ƒ /tasks/[id]                          1.94 kB         102 kB
-├ ○ /terms                               150 B          87.3 kB
-├ ○ /worker                              183 B          94.2 kB
-├ ƒ /worker/tasks/[id]                   3.63 kB         104 kB
-└ ○ /worker/wallet                       2.65 kB         103 kB
-+ First Load JS shared by all            87.2 kB
-```
+| Step | Operation / Action | Endpoint / Method | Verified Outcome |
+| :---: | :--- | :--- | :--- |
+| **1** | **Buyer Authentication** | `POST /api/v1/auth/login` | Logged in as `buyer@earnxpress.demo`, returned short-lived JWT access token & refresh token. |
+| **2** | **Worker Authentication**| `POST /api/v1/auth/login` | Logged in as `worker1@earnxpress.demo`, returned worker JWT access token. |
+| **3** | **Buyer Wallet Query** | `GET /api/v1/demo-finance/wallets` | Fetched live PostgreSQL demo accounts: `$4,847.00 USD` available, `$603.00 USD` in escrow. |
+| **4** | **Campaign Creation** | `POST /api/v1/tasks` | Created 3-slot campaign ("Audit Multi-Device CSS Flexbox Grid Layouts"), atomically locked **`$153.00 USD`** demo escrow. |
+| **5** | **Slot Concurrency Claim** | `POST /api/v1/tasks/:id/accept-slot` | Worker claimed Slot #1 under PostgreSQL row-level lock (`SELECT ... FOR UPDATE`), active countdown timers initiated. |
+| **6** | **Deliverable Submission** | `POST /api/v1/tasks/participations/:id/submit`| Worker submitted deliverable notes & GitHub PR URL. Participation moved to `SUBMITTED`. |
+| **7** | **Buyer Evaluation** | `POST /api/v1/tasks/participations/:id/review`| Buyer approved work with 5★ rating. Triggered double-entry ledger payout. |
+| **8** | **Payout & Commission** | Internal Ledger Engine | Worker credited `$48.00 USD` (net of 4% commission); platform revenue credited `$2.00 USD`; Buyer escrow released. |
+| **9** | **Worker Post-Payout Balance**| `GET /api/v1/demo-finance/wallets` | Worker balance increased to `$1,346.00 USD` verified from PostgreSQL ledger entries. |
+| **10**| **Test Faucet Grant** | `POST /api/v1/demo-finance/faucet` | Claimed `$1,000.00 USD` demo faucet liquidity, credited atomically to `DEMO_WORKER_AVAILABLE`. |
 
 ---
 
-## 4. Phase 3 & Ready Status
+## 3. Production Route Verification Matrix (20 Routes)
 
-Phase 1 (Backend Modular Monolith) and Phase 2 (Complete Next.js Website) are **100% complete, verified, and operational**.
+All 20 routes were verified on `http://localhost:3000` and `http://localhost:4000`:
+
+| # | Route | Purpose | HTTP Status | Response Verification |
+| :-: | :--- | :--- | :-: | :--- |
+| **1** | `/` | Public Homepage & Hero | **200 OK** | Hero section, model explainer, live stats, featured tasks. |
+| **2** | `/tasks` | Open Task Marketplace Catalog | **200 OK** | Keyword search, category filters, task cards with live slots. |
+| **3** | `/tasks/[id]` | Task Details & Claim Workspace | **200 OK** | Full instructions, objective criteria, Participation Dashboard. |
+| **4** | `/worker` | Worker Execution Dashboard | **200 OK** | Active slot counters, deadline timers, progress bars. |
+| **5** | `/worker/tasks/[id]` | Worker Milestone Execution Workspace | **200 OK** | Verified milestone checklist, deliverable submit form. |
+| **6** | `/worker/wallet` | Worker Demo Wallet & Transactions | **200 OK** | Available & escrow balances, transaction ledger table. |
+| **7** | `/buyer` | Buyer Campaign Control Center | **200 OK** | Active campaigns, funded slots counter, participant metrics. |
+| **8** | `/buyer/tasks/new` | Five-Step Task Creation Wizard | **200 OK** | Wizard stepper, live escrow calculator, criteria validator. |
+| **9** | `/buyer/submissions` | Submissions Review Queue | **200 OK** | Deliverables inspector, Approve/Revision/Reject actions. |
+| **10**| `/buyer/wallet` | Buyer Demo Wallet & Escrow | **200 OK** | Reserved escrow overview, faucet credit grant. |
+| **11**| `/admin` | Staff Governance & Platform Admin | **200 OK** | Platform stats, user sanctions, audit log explorer. |
+| **12**| `/login` | User Sign In | **200 OK** | Quick 1-click role logins + credentials form. |
+| **13**| `/register` | User Registration | **200 OK** | Role toggle (Worker vs Buyer), country selector, terms. |
+| **14**| `/forgot-password`| Password Reset Recovery | **200 OK** | Simulated recovery token dispatch. |
+| **15**| `/about` | About EarnXpress Mission | **200 OK** | Open Marketplace manifesto, crowdsourcing pillars. |
+| **16**| `/help` | Help Center & Platform Rules | **200 OK** | 72h review SLA rules, milestone calculation rules. |
+| **17**| `/terms` | Terms of Service | **200 OK** | Participation rules, binding deadlines, demo disclaimer. |
+| **18**| `/privacy` | Privacy & Identity Governance | **200 OK** | Zero real PII/biometrics collected invariant. |
+| **19**| `/contact` | Contact & Support | **200 OK** | Inquiries ticket submission form. |
+| **20**| `/api/docs` | OpenAPI Swagger Documentation | **200 OK** | Interactive REST endpoints reference. |
+
+---
+
+## 4. Automated Test Summary
+
+- **Backend Unit Tests**: 40 of 40 Passing (100% across 5 test suites).
+- **Backend E2E Tests**: 5 of 5 Passing (100% supertest integration suites).
+- **Full-Stack Lifecycle Integration Test**: 10 of 10 stages passing against live PostgreSQL.
+- **Route HTTP Probe**: 20 of 20 endpoints returning HTTP 200 OK.

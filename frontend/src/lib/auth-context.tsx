@@ -119,22 +119,57 @@ const AuthContext = createContext<AuthContextType>({
   logout: () => {},
 });
 
+const demoCredentials: Record<UserRole, { email: string; pass: string }> = {
+  WORKER: { email: 'worker1@earnxpress.demo', pass: 'Password123!' },
+  BUYER: { email: 'buyer@earnxpress.demo', pass: 'Password123!' },
+  PLATFORM_OWNER: { email: 'owner@earnxpress.demo', pass: 'Password123!' },
+  SUPER_ADMIN: { email: 'admin@earnxpress.demo', pass: 'Password123!' },
+  MODERATOR: { email: 'admin@earnxpress.demo', pass: 'Password123!' },
+  SUPPORT_AGENT: { email: 'admin@earnxpress.demo', pass: 'Password123!' },
+};
+
+async function syncBackendAuth(targetRole: UserRole) {
+  const creds = demoCredentials[targetRole];
+  if (!creds || typeof window === 'undefined') return;
+  try {
+    const res = await fetch('http://localhost:4000/api/v1/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: creds.email, password: creds.pass }),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.data?.accessToken) {
+        localStorage.setItem('earnxpress_token', json.data.accessToken);
+        if (json.data.user) {
+          localStorage.setItem('earnxpress_user', JSON.stringify(json.data.user));
+        }
+      }
+    }
+  } catch {
+    // Offline fallback
+  }
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>('WORKER');
   const [user, setUser] = useState<User | null>(defaultProfiles.WORKER);
 
   useEffect(() => {
     const savedRole = localStorage.getItem('earnxpress_role') as UserRole;
+    const initialRole = savedRole && defaultProfiles[savedRole] ? savedRole : 'WORKER';
     if (savedRole && defaultProfiles[savedRole]) {
       setRole(savedRole);
       setUser(defaultProfiles[savedRole]);
     }
+    syncBackendAuth(initialRole);
   }, []);
 
   const switchRole = (newRole: UserRole) => {
     setRole(newRole);
     setUser(defaultProfiles[newRole] || defaultProfiles.WORKER);
     localStorage.setItem('earnxpress_role', newRole);
+    syncBackendAuth(newRole);
   };
 
   const login = (email: string, selectedRole: UserRole) => {
@@ -143,11 +178,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(loggedInUser);
     setRole(selectedRole);
     localStorage.setItem('earnxpress_role', selectedRole);
+    syncBackendAuth(selectedRole);
   };
 
   const logout = () => {
     setUser(null);
     localStorage.removeItem('earnxpress_role');
+    localStorage.removeItem('earnxpress_token');
+    localStorage.removeItem('earnxpress_user');
   };
 
   return (

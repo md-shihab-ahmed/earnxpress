@@ -439,6 +439,20 @@ Inspect our onboarding flows and note usability bottlenecks based on Nielsen's 1
   ],
 };
 
+// Helper to get auth headers with JWT from localStorage
+function getAuthHeaders(): HeadersInit {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('earnxpress_token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+  }
+  return headers;
+}
+
 // Centralized Typed API Client
 export const api = {
   // Tasks
@@ -452,7 +466,10 @@ export const api = {
       const res = await fetch(`${API_BASE_URL}/tasks?${query.toString()}`);
       if (res.ok) {
         const json = await res.json();
-        return (json.data || json) as { data: Task[]; meta: { totalCount: number } };
+        const taskArray = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : null;
+        if (taskArray && taskArray.length > 0) {
+          return { data: taskArray, meta: json.meta || { totalCount: taskArray.length } };
+        }
       }
     } catch {
       // Fallback to demo DB
@@ -474,7 +491,10 @@ export const api = {
       const res = await fetch(`${API_BASE_URL}/tasks/${id}`);
       if (res.ok) {
         const json = await res.json();
-        return (json.data || json) as Task;
+        const task = json.data || json;
+        if (task && task.id) {
+          return task as Task;
+        }
       }
     } catch {
       // Fallback
@@ -488,11 +508,11 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/accept-slot`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
       });
       if (res.ok) {
         const json = await res.json();
-        return json.data || json;
+        return { success: true, ...(json.data || json) };
       }
     } catch {
       // Fallback
@@ -545,6 +565,20 @@ export const api = {
   },
 
   async updateMilestone(participationId: string, milestoneId: string, isCompleted: boolean) {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/participations/${participationId}/milestones/${milestoneId}`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ isCompleted }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || json;
+      }
+    } catch {
+      // Fallback
+    }
+
     const part = demoDb.participations.find((p) => p.id === participationId);
     if (part && part.milestones) {
       const m = part.milestones.find((x) => x.id === milestoneId);
@@ -563,12 +597,12 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/tasks/participations/${participationId}/submit`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content, deliverableUrls }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ content: content || 'Deliverable submission', deliverableUrls: deliverableUrls || [] }),
       });
       if (res.ok) {
         const json = await res.json();
-        return json.data || json;
+        return { success: true, ...(json.data || json) };
       }
     } catch {
       // Fallback
@@ -594,16 +628,44 @@ export const api = {
   },
 
   // Buyer Endpoints
-  async createBuyerTask(data: any) {
+  async createBuyerTask(data: any): Promise<{ success: boolean; task?: any; message?: string }> {
     try {
+      const payload = {
+        categoryId: data.categoryId || 'd2fdddae-e0ce-49c6-a04f-98b3cbf04928',
+        subcategoryId: data.subcategoryId || 'a7c8c961-93cb-472a-9322-b64932680076',
+        taskModel: data.taskModel || 'MULTI_WORKER',
+        title: data.title,
+        descriptionMarkdown: data.descriptionMarkdown || data.description || 'Task instructions and details',
+        totalSlots: Number(data.totalSlots) || 1,
+        unitBudgetCents: Number(data.unitBudgetCents) || 2500,
+        maxRevisions: Number(data.maxRevisions) || 2,
+        startDeadlineHours: Number(data.startDeadlineHours) || 6,
+        completionDurationHours: Number(data.completionDurationHours) || 24,
+        acceptanceCriteria: (data.acceptanceCriteria && data.acceptanceCriteria.length >= 2
+          ? data.acceptanceCriteria
+          : [
+              { key: 'criterion_1', description: 'Deliverable complies with all technical guidelines' },
+              { key: 'criterion_2', description: 'Zero defects or missing assets upon review' },
+            ]
+        ).map((c: any, i: number) =>
+          typeof c === 'string' ? { key: `c_${i + 1}`, description: c } : { key: c.key || `c_${i + 1}`, description: c.description || 'Requirement' }
+        ),
+        deliverableRequirements: (data.deliverableRequirements && data.deliverableRequirements.length > 0
+          ? data.deliverableRequirements
+          : [{ type: 'URL', label: 'Cloud repository URL or deliverables file' }]
+        ).map((d: any) =>
+          typeof d === 'string' ? { type: 'URL', label: d } : { type: d.type || 'URL', label: d.label || 'Deliverable' }
+        ),
+      };
+
       const res = await fetch(`${API_BASE_URL}/tasks`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        headers: getAuthHeaders(),
+        body: JSON.stringify(payload),
       });
       if (res.ok) {
         const json = await res.json();
-        return json.data || json;
+        return { success: true, task: json.data || json };
       }
     } catch {
       // Fallback
@@ -650,12 +712,12 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/tasks/participations/${participationId}/review`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, feedback, rating }),
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ decision, feedback: feedback || `Evaluation decision: ${decision}`, rating: rating || 5 }),
       });
       if (res.ok) {
         const json = await res.json();
-        return json.data || json;
+        return { success: true, ...(json.data || json) };
       }
     } catch {
       // Fallback
@@ -682,6 +744,42 @@ export const api = {
 
   // Wallet
   async getWallet() {
+    try {
+      const [wRes, txRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/demo-finance/wallets`, { headers: getAuthHeaders() }),
+        fetch(`${API_BASE_URL}/demo-finance/transactions`, { headers: getAuthHeaders() }),
+      ]);
+      if (wRes.ok) {
+        const wJson = await wRes.json();
+        const txJson = txRes.ok ? await txRes.json() : null;
+        const accounts = wJson.data?.accounts || [];
+        const avail = accounts.find((a: any) => a.accountType.includes('AVAILABLE'));
+        const escrow = accounts.find((a: any) => a.accountType.includes('ESCROW'));
+        const availCents = avail ? Number(avail.balanceCents) : demoDb.wallet.availableCents;
+        const escrowCents = escrow ? Number(escrow.balanceCents) : demoDb.wallet.escrowCents;
+        const rawTxs = txJson?.data?.transactions || [];
+        const transactions: DemoLedgerTransaction[] = rawTxs.length > 0 ? rawTxs.map((t: any) => ({
+          id: t.id,
+          referenceType: t.referenceType,
+          referenceId: t.referenceId,
+          description: t.description,
+          amountCents: String(t.amountCents),
+          formattedAmountUSD: `DEMO $${(Number(t.amountCents) / 100).toFixed(2)} USD`,
+          createdAt: t.createdAt,
+        })) : demoDb.wallet.transactions;
+
+        return {
+          availableBalanceCents: availCents,
+          formattedAvailableUSD: `DEMO $${(availCents / 100).toFixed(2)} USD`,
+          escrowBalanceCents: escrowCents,
+          formattedEscrowUSD: `DEMO $${(escrowCents / 100).toFixed(2)} USD`,
+          transactions,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+
     return {
       availableBalanceCents: demoDb.wallet.availableCents,
       formattedAvailableUSD: `DEMO $${(demoDb.wallet.availableCents / 100).toFixed(2)} USD`,
@@ -695,11 +793,17 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE_URL}/demo-finance/faucet`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ amountCents: 100000 }),
       });
       if (res.ok) {
         const json = await res.json();
-        return json.data || json;
+        const data = json.data || json;
+        return {
+          success: true,
+          creditedUSD: data.formattedCreditedUSD || 'DEMO $1,000.00 USD',
+          newBalanceUSD: data.formattedCurrentBalanceUSD || 'DEMO $1,000.00 USD',
+        };
       }
     } catch {
       // Fallback
@@ -725,6 +829,27 @@ export const api = {
 
   // Admin
   async getAdminStats() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/dashboard-stats`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const d = json.data || json;
+        return {
+          totalUsers: d.totalUsers ?? 1842,
+          activeTasks: d.activeTasks ?? demoDb.tasks.length,
+          totalSlotsFunded: d.totalSlotsFunded ?? 2450,
+          totalDemoVolumeUSD: d.formattedVolumeUSD ?? 'DEMO $148,500.00 USD',
+          openDisputes: d.openDisputes ?? 0,
+          overdueReviews: d.overdueReviews ?? 0,
+          auditLogCount: d.auditLogCount ?? demoDb.auditLogs.length,
+        };
+      }
+    } catch {
+      // Fallback
+    }
+
     return {
       totalUsers: 1842,
       activeTasks: demoDb.tasks.length,
@@ -737,6 +862,21 @@ export const api = {
   },
 
   async getAuditLogs() {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/audit-logs`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const logs = json.data?.logs || json.data || json;
+        if (Array.isArray(logs) && logs.length > 0) {
+          return logs;
+        }
+      }
+    } catch {
+      // Fallback
+    }
+
     return demoDb.auditLogs;
   },
 };

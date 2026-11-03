@@ -63,7 +63,7 @@ export function TaskCard({ task }: TaskCardProps) {
             </span>
             <span>•</span>
             <span className="flex items-center gap-0.5 text-amber-500 font-medium">
-              ★ {task.buyer.profile.reputationScore.toFixed(1)}
+              ★ {Number(task.buyer.profile.reputationScore || 5.0).toFixed(1)}
             </span>
             <span>•</span>
             <span>{task.buyer.profile.countryCode}</span>

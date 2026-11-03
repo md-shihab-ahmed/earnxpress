@@ -6,6 +6,7 @@ import {
   BadRequestException,
   Logger,
 } from '@nestjs/common';
+import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DemoFinanceService } from '../demo-finance/demo-finance.service';
 import { AuditService } from '../audit/audit.service';
@@ -36,12 +37,13 @@ export class TasksService {
     const unitBudgetCents = BigInt(dto.unitBudgetCents);
     const fees = this.demoFinanceService.calculateFees(unitBudgetCents);
     const totalEscrowCents = fees.totalSlotEscrowCents * BigInt(dto.totalSlots);
+    const taskId = randomUUID();
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Lock demo escrow atomically
       await this.demoFinanceService.lockTaskEscrow(
         buyerId,
-        'PENDING_TASK_ID',
+        taskId,
         dto.totalSlots,
         unitBudgetCents,
         tx,
@@ -50,6 +52,7 @@ export class TasksService {
       // 2. Create parent task entity
       const task = await tx.task.create({
         data: {
+          id: taskId,
           buyerId,
           categoryId: dto.categoryId,
           subcategoryId: dto.subcategoryId,
@@ -436,6 +439,7 @@ export class TasksService {
 
       return {
         success: true,
+        id: participation.id,
         participationId: participation.id,
         slotNumber: slot.slotNumber,
         status: participation.status,

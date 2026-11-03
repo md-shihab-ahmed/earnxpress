@@ -89,7 +89,7 @@ export function TaskCreationWizard() {
       };
 
       const res = await api.createBuyerTask(payload);
-      if (res.success) {
+      if (res.success && res.task) {
         router.push(`/tasks/${res.task.id}`);
       } else {
         setError(res.message || 'Failed to publish campaign');

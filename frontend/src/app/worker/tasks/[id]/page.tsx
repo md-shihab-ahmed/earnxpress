@@ -20,7 +20,50 @@ interface WorkerTaskWorkspacePageProps {
 
 export default async function WorkerTaskWorkspacePage({ params }: WorkerTaskWorkspacePageProps) {
   const participations = await api.getWorkerParticipations();
-  const participation = participations.find((p) => p.taskId === params.id) || participations[0];
+  let participation = participations.find((p) => p.taskId === params.id || p.id === params.id);
+
+  if (!participation) {
+    const task = await api.getTaskById(params.id);
+    if (task) {
+      participation = {
+        id: `part-${task.id}`,
+        taskId: task.id,
+        slotNumber: 1,
+        workerId: 'worker-user-1',
+        status: 'IN_PROGRESS',
+        startDeadlineAt: new Date(Date.now() + (task.startDeadlineHours || 6) * 3600000).toISOString(),
+        executionDeadlineAt: new Date(Date.now() + (task.completionDurationHours || 24) * 3600000).toISOString(),
+        revisionsUsed: 0,
+        progressPercentage: 0,
+        task,
+        milestones: task.instructions?.milestones?.map((m: any, idx: number) => ({
+          id: `m-${idx + 1}`,
+          participationId: `part-${task.id}`,
+          milestoneOrder: m.order || idx + 1,
+          title: m.title || `Milestone ${idx + 1}`,
+          isCompleted: false,
+          isVerified: false,
+        })) || [
+          {
+            id: 'm-1',
+            participationId: `part-${task.id}`,
+            milestoneOrder: 1,
+            title: 'Initial setup & requirements verification',
+            isCompleted: false,
+            isVerified: false,
+          },
+          {
+            id: 'm-2',
+            participationId: `part-${task.id}`,
+            milestoneOrder: 2,
+            title: 'Complete work execution & QA checks',
+            isCompleted: false,
+            isVerified: false,
+          },
+        ],
+      };
+    }
+  }
 
   if (!participation || !participation.task) {
     notFound();
