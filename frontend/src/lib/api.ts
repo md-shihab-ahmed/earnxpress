@@ -8,6 +8,8 @@ import {
 } from '@/types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+export const ENABLE_DEMO_SHORTCUTS = process.env.NEXT_PUBLIC_ENABLE_DEMO_SHORTCUTS === 'true';
+export const ENABLE_DEMO_FAUCET = process.env.NEXT_PUBLIC_ENABLE_DEMO_FAUCET === 'true';
 
 // In-memory demo state for seamless client interactions when offline
 export const demoDb = {
@@ -455,6 +457,34 @@ function getAuthHeaders(): HeadersInit {
 
 // Centralized Typed API Client
 export const api = {
+  // Public Market Stats
+  async getPublicStats(): Promise<{
+    activeTasksCount: number;
+    verifiedWorkersCount: number;
+    totalSlotsCount: number;
+    availableSlotsCount: number;
+    totalParticipationsCount: number;
+    settlementRatePercent: string;
+  }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/public/platform-stats`);
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || json;
+      }
+    } catch {
+      // ignore
+    }
+    return {
+      activeTasksCount: 0,
+      verifiedWorkersCount: 0,
+      totalSlotsCount: 0,
+      availableSlotsCount: 0,
+      totalParticipationsCount: 0,
+      settlementRatePercent: '100.0',
+    };
+  },
+
   // Tasks
   async getTasks(params?: { search?: string; categoryId?: string; taskModel?: string }): Promise<{ data: Task[]; meta: { totalCount: number } }> {
     try {
@@ -472,18 +502,22 @@ export const api = {
         }
       }
     } catch {
-      // Fallback to demo DB
+      // Fallback
     }
 
-    let results = [...demoDb.tasks];
-    if (params?.search) {
-      const s = params.search.toLowerCase();
-      results = results.filter((t) => t.title.toLowerCase().includes(s));
+    if (ENABLE_DEMO_SHORTCUTS) {
+      let results = [...demoDb.tasks];
+      if (params?.search) {
+        const s = params.search.toLowerCase();
+        results = results.filter((t) => t.title.toLowerCase().includes(s));
+      }
+      if (params?.taskModel) {
+        results = results.filter((t) => t.taskModel === params.taskModel);
+      }
+      return { data: results, meta: { totalCount: results.length } };
     }
-    if (params?.taskModel) {
-      results = results.filter((t) => t.taskModel === params.taskModel);
-    }
-    return { data: results, meta: { totalCount: results.length } };
+
+    return { data: [], meta: { totalCount: 0 } };
   },
 
   async getTaskById(id: string): Promise<Task | null> {
@@ -499,12 +533,17 @@ export const api = {
     } catch {
       // Fallback
     }
-    const found = demoDb.tasks.find((t) => t.id === id);
-    if (found) return found;
-    return demoDb.tasks[0] || null;
+
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const found = demoDb.tasks.find((t) => t.id === id);
+      if (found) return found;
+      return demoDb.tasks[0] || null;
+    }
+
+    return null;
   },
 
-  async acceptSlot(taskId: string) {
+  async acceptSlot(taskId: string): Promise<{ success: boolean; participation?: any; message?: string }> {
     try {
       const res = await fetch(`${API_BASE_URL}/tasks/${taskId}/accept-slot`, {
         method: 'POST',
@@ -513,55 +552,95 @@ export const api = {
       if (res.ok) {
         const json = await res.json();
         return { success: true, ...(json.data || json) };
+      } else {
+        const errJson = await res.json().catch(() => null);
+        return { success: false, message: errJson?.message || 'Failed to claim task slot' };
       }
     } catch {
       // Fallback
     }
 
-    const task = demoDb.tasks.find((t) => t.id === taskId);
-    if (task && task.availableSlots > 0) {
-      task.availableSlots -= 1;
-      if (task.participationStats) {
-        task.participationStats.remainingAvailableSlots -= 1;
-        task.participationStats.acceptedTotal += 1;
-        task.participationStats.currentlyWorking += 1;
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const task = demoDb.tasks.find((t) => t.id === taskId);
+      if (task && task.availableSlots > 0) {
+        task.availableSlots -= 1;
+        if (task.participationStats) {
+          task.participationStats.remainingAvailableSlots -= 1;
+          task.participationStats.acceptedTotal += 1;
+          task.participationStats.currentlyWorking += 1;
+        }
+
+        const newParticipation: WorkerParticipation = {
+          id: `part-${Date.now()}`,
+          taskId: task.id,
+          slotNumber: task.totalSlots - task.availableSlots,
+          workerId: 'worker-user-1',
+          status: 'IN_PROGRESS',
+          startDeadlineAt: new Date(Date.now() + task.startDeadlineHours * 3600000).toISOString(),
+          executionDeadlineAt: new Date(Date.now() + task.completionDurationHours * 3600000).toISOString(),
+          revisionsUsed: 0,
+          progressPercentage: 0,
+          task,
+          milestones: task.instructions?.milestones?.map((m) => ({
+            id: `m-${Date.now()}-${m.order}`,
+            participationId: `part-${Date.now()}`,
+            milestoneOrder: m.order,
+            title: m.title,
+            isCompleted: false,
+            isVerified: false,
+          })) || [],
+        };
+
+        demoDb.participations.unshift(newParticipation);
+        return { success: true, participation: newParticipation };
       }
-
-      const newParticipation: WorkerParticipation = {
-        id: `part-${Date.now()}`,
-        taskId: task.id,
-        slotNumber: task.totalSlots - task.availableSlots,
-        workerId: 'worker-user-1',
-        status: 'IN_PROGRESS',
-        startDeadlineAt: new Date(Date.now() + task.startDeadlineHours * 3600000).toISOString(),
-        executionDeadlineAt: new Date(Date.now() + task.completionDurationHours * 3600000).toISOString(),
-        revisionsUsed: 0,
-        progressPercentage: 0,
-        task,
-        milestones: task.instructions?.milestones?.map((m) => ({
-          id: `m-${Date.now()}-${m.order}`,
-          participationId: `part-${Date.now()}`,
-          milestoneOrder: m.order,
-          title: m.title,
-          isCompleted: false,
-          isVerified: false,
-        })) || [],
-      };
-
-      demoDb.participations.unshift(newParticipation);
-      return { success: true, participation: newParticipation };
+      return { success: false, message: 'All slots claimed' };
     }
 
-    return { success: false, message: 'All slots claimed' };
+    return { success: false, message: 'Server communication error claiming slot' };
   },
 
   // Worker Endpoints
   async getWorkerParticipations(): Promise<WorkerParticipation[]> {
-    return [...demoDb.participations];
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/participations/my`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const list = Array.isArray(json.data) ? json.data : Array.isArray(json) ? json : [];
+        if (list.length > 0) return list;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (ENABLE_DEMO_SHORTCUTS) {
+      return [...demoDb.participations];
+    }
+
+    return [];
   },
 
   async getParticipationById(id: string): Promise<WorkerParticipation | undefined> {
-    return demoDb.participations.find((p) => p.id === id) || demoDb.participations[0];
+    try {
+      const res = await fetch(`${API_BASE_URL}/tasks/participations/${id}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const part = json.data || json;
+        if (part && part.id) return part;
+      }
+    } catch {
+      // Fallback
+    }
+
+    if (ENABLE_DEMO_SHORTCUTS) {
+      return demoDb.participations.find((p) => p.id === id) || demoDb.participations[0];
+    }
+
+    return undefined;
   },
 
   async updateMilestone(participationId: string, milestoneId: string, isCompleted: boolean) {
@@ -579,18 +658,22 @@ export const api = {
       // Fallback
     }
 
-    const part = demoDb.participations.find((p) => p.id === participationId);
-    if (part && part.milestones) {
-      const m = part.milestones.find((x) => x.id === milestoneId);
-      if (m) {
-        m.isCompleted = isCompleted;
-        m.isVerified = isCompleted;
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const part = demoDb.participations.find((p) => p.id === participationId);
+      if (part && part.milestones) {
+        const m = part.milestones.find((x) => x.id === milestoneId);
+        if (m) {
+          m.isCompleted = isCompleted;
+          m.isVerified = isCompleted;
+        }
+        const completed = part.milestones.filter((x) => x.isCompleted).length;
+        part.progressPercentage = Math.round((completed / part.milestones.length) * 100);
+        return { success: true, progressPercentage: part.progressPercentage };
       }
-      const completed = part.milestones.filter((x) => x.isCompleted).length;
-      part.progressPercentage = Math.round((completed / part.milestones.length) * 100);
-      return { success: true, progressPercentage: part.progressPercentage };
+      return { success: true, progressPercentage: 100 };
     }
-    return { success: true, progressPercentage: 100 };
+
+    return { success: false, message: 'Server error updating milestone' };
   },
 
   async submitWork(participationId: string, content: string, deliverableUrls?: string[]) {
@@ -608,23 +691,27 @@ export const api = {
       // Fallback
     }
 
-    const part = demoDb.participations.find((p) => p.id === participationId);
-    if (part) {
-      part.status = 'SUBMITTED';
-      part.progressPercentage = 100;
-      part.submittedAt = new Date().toISOString();
-      part.reviewOverdueAt = new Date(Date.now() + 72 * 3600000).toISOString();
-      if (!part.submissionVersions) part.submissionVersions = [];
-      part.submissionVersions.push({
-        id: `subv-${Date.now()}`,
-        versionNumber: part.submissionVersions.length + 1,
-        textNotes: content,
-        deliverableUrls,
-        submittedAt: new Date().toISOString(),
-      });
-      return { success: true, status: 'SUBMITTED', submissionVersion: part.submissionVersions.length };
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const part = demoDb.participations.find((p) => p.id === participationId);
+      if (part) {
+        part.status = 'SUBMITTED';
+        part.progressPercentage = 100;
+        part.submittedAt = new Date().toISOString();
+        part.reviewOverdueAt = new Date(Date.now() + 72 * 3600000).toISOString();
+        if (!part.submissionVersions) part.submissionVersions = [];
+        part.submissionVersions.push({
+          id: `subv-${Date.now()}`,
+          versionNumber: part.submissionVersions.length + 1,
+          textNotes: content,
+          deliverableUrls,
+          submittedAt: new Date().toISOString(),
+        });
+        return { success: true, status: 'SUBMITTED', submissionVersion: part.submissionVersions.length };
+      }
+      return { success: true, status: 'SUBMITTED' };
     }
-    return { success: true, status: 'SUBMITTED' };
+
+    return { success: false, message: 'Server error submitting deliverables' };
   },
 
   // Buyer Endpoints
@@ -666,46 +753,53 @@ export const api = {
       if (res.ok) {
         const json = await res.json();
         return { success: true, task: json.data || json };
+      } else {
+        const errJson = await res.json().catch(() => null);
+        return { success: false, message: errJson?.message || 'Failed to create task on server' };
       }
     } catch {
       // Fallback
     }
 
-    const newTask: Task = {
-      id: `task-${Date.now()}`,
-      title: data.title,
-      taskModel: data.taskModel || 'MULTI_WORKER',
-      status: 'OPEN',
-      totalSlots: Number(data.totalSlots) || 10,
-      availableSlots: Number(data.totalSlots) || 10,
-      unitBudgetCents: String(data.unitBudgetCents),
-      formattedUnitUSD: `DEMO $${(Number(data.unitBudgetCents) / 100).toFixed(2)} USD`,
-      startDeadlineHours: Number(data.startDeadlineHours) || 6,
-      completionDurationHours: Number(data.completionDurationHours) || 24,
-      reviewSlaHours: 72,
-      maxRevisions: Number(data.maxRevisions) || 2,
-      createdAt: new Date().toISOString(),
-      category: { id: 'c1', name: 'General Tasks', slug: 'general' },
-      participationStats: {
-        totalCapacity: Number(data.totalSlots) || 10,
-        remainingAvailableSlots: Number(data.totalSlots) || 10,
-        acceptedTotal: 0,
-        currentlyWorking: 0,
-        submittedForReview: 0,
-        reviewOverdue: 0,
-        approvedSettled: 0,
-        rejectedTerminated: 0,
-      },
-      instructions: {
-        versionNumber: 1,
-        descriptionMarkdown: data.descriptionMarkdown,
-        acceptanceCriteria: data.acceptanceCriteria || [],
-        deliverableRequirements: data.deliverableRequirements || [],
-      },
-    };
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const newTask: Task = {
+        id: `task-${Date.now()}`,
+        title: data.title,
+        taskModel: data.taskModel || 'MULTI_WORKER',
+        status: 'OPEN',
+        totalSlots: Number(data.totalSlots) || 10,
+        availableSlots: Number(data.totalSlots) || 10,
+        unitBudgetCents: String(data.unitBudgetCents),
+        formattedUnitUSD: `DEMO $${(Number(data.unitBudgetCents) / 100).toFixed(2)} USD`,
+        startDeadlineHours: Number(data.startDeadlineHours) || 6,
+        completionDurationHours: Number(data.completionDurationHours) || 24,
+        reviewSlaHours: 72,
+        maxRevisions: Number(data.maxRevisions) || 2,
+        createdAt: new Date().toISOString(),
+        category: { id: 'c1', name: 'General Tasks', slug: 'general' },
+        participationStats: {
+          totalCapacity: Number(data.totalSlots) || 10,
+          remainingAvailableSlots: Number(data.totalSlots) || 10,
+          acceptedTotal: 0,
+          currentlyWorking: 0,
+          submittedForReview: 0,
+          reviewOverdue: 0,
+          approvedSettled: 0,
+          rejectedTerminated: 0,
+        },
+        instructions: {
+          versionNumber: 1,
+          descriptionMarkdown: data.descriptionMarkdown,
+          acceptanceCriteria: data.acceptanceCriteria || [],
+          deliverableRequirements: data.deliverableRequirements || [],
+        },
+      };
 
-    demoDb.tasks.unshift(newTask);
-    return { success: true, task: newTask };
+      demoDb.tasks.unshift(newTask);
+      return { success: true, task: newTask };
+    }
+
+    return { success: false, message: 'Failed to create task on server' };
   },
 
   async reviewParticipation(participationId: string, decision: 'APPROVE' | 'REQUEST_REVISION' | 'REJECT', feedback: string, rating?: number) {
@@ -723,23 +817,27 @@ export const api = {
       // Fallback
     }
 
-    const part = demoDb.participations.find((p) => p.id === participationId);
-    if (part) {
-      if (decision === 'APPROVE') {
-        part.status = 'APPROVED';
-        part.approvedAt = new Date().toISOString();
-        demoDb.wallet.availableCents += 2400; // Worker earned
-      } else if (decision === 'REQUEST_REVISION') {
-        part.status = 'REVISION_REQUESTED';
-        part.revisionsUsed += 1;
-        part.feedback = feedback;
-      } else {
-        part.status = 'REJECTED';
-        part.rejectionReason = feedback;
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const part = demoDb.participations.find((p) => p.id === participationId);
+      if (part) {
+        if (decision === 'APPROVE') {
+          part.status = 'APPROVED';
+          part.approvedAt = new Date().toISOString();
+          demoDb.wallet.availableCents += 2400; // Worker earned
+        } else if (decision === 'REQUEST_REVISION') {
+          part.status = 'REVISION_REQUESTED';
+          part.revisionsUsed += 1;
+          part.feedback = feedback;
+        } else {
+          part.status = 'REJECTED';
+          part.rejectionReason = feedback;
+        }
+        return { success: true, status: part.status };
       }
-      return { success: true, status: part.status };
+      return { success: true, status: decision };
     }
-    return { success: true, status: decision };
+
+    return { success: false, message: 'Failed to record submission evaluation' };
   },
 
   // Wallet
@@ -755,10 +853,10 @@ export const api = {
         const accounts = wJson.data?.accounts || [];
         const avail = accounts.find((a: any) => a.accountType.includes('AVAILABLE'));
         const escrow = accounts.find((a: any) => a.accountType.includes('ESCROW'));
-        const availCents = avail ? Number(avail.balanceCents) : demoDb.wallet.availableCents;
-        const escrowCents = escrow ? Number(escrow.balanceCents) : demoDb.wallet.escrowCents;
+        const availCents = avail ? Number(avail.balanceCents) : 0;
+        const escrowCents = escrow ? Number(escrow.balanceCents) : 0;
         const rawTxs = txJson?.data?.transactions || [];
-        const transactions: DemoLedgerTransaction[] = rawTxs.length > 0 ? rawTxs.map((t: any) => ({
+        const transactions: DemoLedgerTransaction[] = rawTxs.map((t: any) => ({
           id: t.id,
           referenceType: t.referenceType,
           referenceId: t.referenceId,
@@ -766,7 +864,7 @@ export const api = {
           amountCents: String(t.amountCents),
           formattedAmountUSD: `DEMO $${(Number(t.amountCents) / 100).toFixed(2)} USD`,
           createdAt: t.createdAt,
-        })) : demoDb.wallet.transactions;
+        }));
 
         return {
           availableBalanceCents: availCents,
@@ -780,16 +878,33 @@ export const api = {
       // Fallback
     }
 
+    if (ENABLE_DEMO_SHORTCUTS) {
+      return {
+        availableBalanceCents: demoDb.wallet.availableCents,
+        formattedAvailableUSD: `DEMO $${(demoDb.wallet.availableCents / 100).toFixed(2)} USD`,
+        escrowBalanceCents: demoDb.wallet.escrowCents,
+        formattedEscrowUSD: `DEMO $${(demoDb.wallet.escrowCents / 100).toFixed(2)} USD`,
+        transactions: demoDb.wallet.transactions,
+      };
+    }
+
     return {
-      availableBalanceCents: demoDb.wallet.availableCents,
-      formattedAvailableUSD: `DEMO $${(demoDb.wallet.availableCents / 100).toFixed(2)} USD`,
-      escrowBalanceCents: demoDb.wallet.escrowCents,
-      formattedEscrowUSD: `DEMO $${(demoDb.wallet.escrowCents / 100).toFixed(2)} USD`,
-      transactions: demoDb.wallet.transactions,
+      availableBalanceCents: 0,
+      formattedAvailableUSD: 'DEMO $0.00 USD',
+      escrowBalanceCents: 0,
+      formattedEscrowUSD: 'DEMO $0.00 USD',
+      transactions: [],
     };
   },
 
   async claimFaucet() {
+    if (!ENABLE_DEMO_FAUCET) {
+      return {
+        success: false,
+        message: 'Demo faucet is completely disabled in production mode.',
+      };
+    }
+
     try {
       const res = await fetch(`${API_BASE_URL}/demo-finance/faucet`, {
         method: 'POST',
@@ -804,26 +919,39 @@ export const api = {
           creditedUSD: data.formattedCreditedUSD || 'DEMO $1,000.00 USD',
           newBalanceUSD: data.formattedCurrentBalanceUSD || 'DEMO $1,000.00 USD',
         };
+      } else {
+        const errJson = await res.json().catch(() => null);
+        return {
+          success: false,
+          message: errJson?.message || 'Demo faucet claim rejected.',
+        };
       }
     } catch {
       // Fallback
     }
 
-    demoDb.wallet.availableCents += 100000;
-    const newTx: DemoLedgerTransaction = {
-      id: `tx-${Date.now()}`,
-      referenceType: 'DEMO_FAUCET_CLAIM',
-      referenceId: 'faucet',
-      description: 'DEMO Faucet grant claimed',
-      amountCents: '100000',
-      formattedAmountUSD: 'DEMO +$1,000.00 USD',
-      createdAt: new Date().toISOString(),
-    };
-    demoDb.wallet.transactions.unshift(newTx);
+    if (ENABLE_DEMO_SHORTCUTS) {
+      demoDb.wallet.availableCents += 100000;
+      const newTx: DemoLedgerTransaction = {
+        id: `tx-${Date.now()}`,
+        referenceType: 'DEMO_FAUCET_CLAIM',
+        referenceId: 'faucet',
+        description: 'DEMO Faucet grant claimed',
+        amountCents: '100000',
+        formattedAmountUSD: 'DEMO +$1,000.00 USD',
+        createdAt: new Date().toISOString(),
+      };
+      demoDb.wallet.transactions.unshift(newTx);
+      return {
+        success: true,
+        creditedUSD: 'DEMO $1,000.00 USD',
+        newBalanceUSD: `DEMO $${(demoDb.wallet.availableCents / 100).toFixed(2)} USD`,
+      };
+    }
+
     return {
-      success: true,
-      creditedUSD: 'DEMO $1,000.00 USD',
-      newBalanceUSD: `DEMO $${(demoDb.wallet.availableCents / 100).toFixed(2)} USD`,
+      success: false,
+      message: 'Demo faucet is unavailable.',
     };
   },
 
@@ -837,27 +965,39 @@ export const api = {
         const json = await res.json();
         const d = json.data || json;
         return {
-          totalUsers: d.totalUsers ?? 1842,
-          activeTasks: d.activeTasks ?? demoDb.tasks.length,
-          totalSlotsFunded: d.totalSlotsFunded ?? 2450,
-          totalDemoVolumeUSD: d.formattedVolumeUSD ?? 'DEMO $148,500.00 USD',
+          totalUsers: d.totalUsers ?? 0,
+          activeTasks: d.activeTasks ?? 0,
+          totalSlotsFunded: d.totalSlotsFunded ?? 0,
+          totalDemoVolumeUSD: d.formattedVolumeUSD ?? 'DEMO $0.00 USD',
           openDisputes: d.openDisputes ?? 0,
           overdueReviews: d.overdueReviews ?? 0,
-          auditLogCount: d.auditLogCount ?? demoDb.auditLogs.length,
+          auditLogCount: d.auditLogCount ?? 0,
         };
       }
     } catch {
       // Fallback
     }
 
+    if (ENABLE_DEMO_SHORTCUTS) {
+      return {
+        totalUsers: 1842,
+        activeTasks: demoDb.tasks.length,
+        totalSlotsFunded: 2450,
+        totalDemoVolumeUSD: 'DEMO $148,500.00 USD',
+        openDisputes: 2,
+        overdueReviews: 1,
+        auditLogCount: demoDb.auditLogs.length,
+      };
+    }
+
     return {
-      totalUsers: 1842,
-      activeTasks: demoDb.tasks.length,
-      totalSlotsFunded: 2450,
-      totalDemoVolumeUSD: 'DEMO $148,500.00 USD',
-      openDisputes: 2,
-      overdueReviews: 1,
-      auditLogCount: demoDb.auditLogs.length,
+      totalUsers: 0,
+      activeTasks: 0,
+      totalSlotsFunded: 0,
+      totalDemoVolumeUSD: 'DEMO $0.00 USD',
+      openDisputes: 0,
+      overdueReviews: 0,
+      auditLogCount: 0,
     };
   },
 
@@ -877,6 +1017,10 @@ export const api = {
       // Fallback
     }
 
-    return demoDb.auditLogs;
+    if (ENABLE_DEMO_SHORTCUTS) {
+      return demoDb.auditLogs;
+    }
+
+    return [];
   },
 };

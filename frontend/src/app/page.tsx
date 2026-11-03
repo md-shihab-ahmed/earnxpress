@@ -18,7 +18,10 @@ import {
 } from 'lucide-react';
 
 export default async function HomePage() {
-  const { data: tasks } = await api.getTasks();
+  const [{ data: tasks }, stats] = await Promise.all([
+    api.getTasks(),
+    api.getPublicStats(),
+  ]);
 
   return (
     <div className="space-y-16 pb-16">
@@ -83,23 +86,31 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          {/* Live Trust Metrics Bar */}
+          {/* Live Database-Backed Platform Metrics Bar */}
           <div className="pt-10 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto border-t border-navy-800/80">
             <div className="p-3">
-              <div className="text-2xl font-extrabold text-teal-400 font-mono">100%</div>
-              <div className="text-xs text-slate-400 mt-0.5">Open Marketplace Discovery</div>
+              <div className="text-2xl font-extrabold text-teal-400 font-mono">
+                {stats.activeTasksCount}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">Active Marketplace Tasks</div>
             </div>
             <div className="p-3">
-              <div className="text-2xl font-extrabold text-white font-mono">50+</div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {stats.availableSlotsCount}
+              </div>
               <div className="text-xs text-slate-400 mt-0.5">Available Work Slots</div>
             </div>
             <div className="p-3">
-              <div className="text-2xl font-extrabold text-teal-400 font-mono">72h SLA</div>
-              <div className="text-xs text-slate-400 mt-0.5">Overdue Review Escalation</div>
+              <div className="text-2xl font-extrabold text-teal-400 font-mono">
+                {stats.settlementRatePercent}%
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">Verified Settlement Rate</div>
             </div>
             <div className="p-3">
-              <div className="text-2xl font-extrabold text-white font-mono">$1,000</div>
-              <div className="text-xs text-slate-400 mt-0.5">Instant DEMO Faucet Grant</div>
+              <div className="text-2xl font-extrabold text-white font-mono">
+                {stats.verifiedWorkersCount}
+              </div>
+              <div className="text-xs text-slate-400 mt-0.5">Verified Workers Registered</div>
             </div>
           </div>
         </div>

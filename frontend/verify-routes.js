@@ -12,7 +12,7 @@ const routes = [
   { path: '/buyer/submissions', expectedText: 'Submissions Review Queue' },
   { path: '/buyer/wallet', expectedText: 'Demo Wallet' },
   { path: '/admin', expectedText: 'Staff Governance' },
-  { path: '/login', expectedText: 'Sign In to Your Portal' },
+  { path: '/login', expectedText: 'Sign In to Your Account' },
   { path: '/register', expectedText: 'Create Your Account' },
   { path: '/forgot-password', expectedText: 'Reset Password' },
   { path: '/about', expectedText: 'About EarnXpress' },

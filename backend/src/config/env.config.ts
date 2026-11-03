@@ -10,6 +10,9 @@ export const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET must be at least 32 characters'),
   JWT_REFRESH_EXPIRY: z.string().default('7d'),
   COOKIE_SECRET: z.string().min(16).default('dev_cookie_secret_earnxpress_secure_789!'),
+  ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
+  ENABLE_SWAGGER: z.coerce.boolean().default(false),
+  ENABLE_DEMO_FAUCET: z.coerce.boolean().default(false),
   BUYER_FEE_PERCENTAGE: z.coerce.number().default(2.0),
   WORKER_FEE_PERCENTAGE: z.coerce.number().default(4.0),
   FAILURE_SURCHARGE_PERCENTAGE: z.coerce.number().default(2.0),
@@ -27,5 +30,24 @@ export function validateEnv(config: Record<string, unknown>): EnvConfig {
     const errorDetails = result.error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
     throw new Error(`Environment validation failed: ${errorDetails}`);
   }
-  return result.data;
+
+  const data = result.data;
+
+  // Strict production invariants
+  if (data.NODE_ENV === 'production') {
+    const insecureSecrets: string[] = [];
+    if (data.JWT_ACCESS_SECRET.startsWith('dev_')) insecureSecrets.push('JWT_ACCESS_SECRET');
+    if (data.JWT_REFRESH_SECRET.startsWith('dev_')) insecureSecrets.push('JWT_REFRESH_SECRET');
+    if (data.COOKIE_SECRET.startsWith('dev_')) insecureSecrets.push('COOKIE_SECRET');
+
+    if (insecureSecrets.length > 0) {
+      throw new Error(
+        `Production Security Blocker: Insecure development secret detected in [${insecureSecrets.join(
+          ', ',
+        )}]. Production environment requires cryptographically secure, high-entropy secrets.`
+      );
+    }
+  }
+
+  return data;
 }

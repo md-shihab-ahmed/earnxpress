@@ -9,6 +9,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   switchRole: (newRole: UserRole) => void;
   login: (email: string, role: UserRole) => void;
+  loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; user?: any; message?: string }>;
   logout: () => void;
 }
 
@@ -110,12 +111,16 @@ const defaultProfiles: Record<UserRole, User> = {
   },
 };
 
+const ENABLE_DEMO_SHORTCUTS = process.env.NEXT_PUBLIC_ENABLE_DEMO_SHORTCUTS === 'true';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+
 const AuthContext = createContext<AuthContextType>({
-  user: defaultProfiles.WORKER,
+  user: ENABLE_DEMO_SHORTCUTS ? defaultProfiles.WORKER : null,
   role: 'WORKER',
-  isAuthenticated: true,
+  isAuthenticated: ENABLE_DEMO_SHORTCUTS,
   switchRole: () => {},
   login: () => {},
+  loginWithCredentials: async () => ({ success: false }),
   logout: () => {},
 });
 
@@ -132,7 +137,7 @@ async function syncBackendAuth(targetRole: UserRole) {
   const creds = demoCredentials[targetRole];
   if (!creds || typeof window === 'undefined') return;
   try {
-    const res = await fetch('http://localhost:4000/api/v1/auth/login', {
+    const res = await fetch(`${API_BASE_URL}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: creds.email, password: creds.pass }),
@@ -153,32 +158,98 @@ async function syncBackendAuth(targetRole: UserRole) {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<UserRole>('WORKER');
-  const [user, setUser] = useState<User | null>(defaultProfiles.WORKER);
+  const [user, setUser] = useState<User | null>(() => {
+    if (typeof window !== 'undefined') {
+      const savedUser = localStorage.getItem('earnxpress_user');
+      if (savedUser) {
+        try {
+          return JSON.parse(savedUser);
+        } catch {
+          // ignore
+        }
+      }
+    }
+    return ENABLE_DEMO_SHORTCUTS ? defaultProfiles.WORKER : null;
+  });
 
   useEffect(() => {
+    const savedUserStr = localStorage.getItem('earnxpress_user');
     const savedRole = localStorage.getItem('earnxpress_role') as UserRole;
-    const initialRole = savedRole && defaultProfiles[savedRole] ? savedRole : 'WORKER';
-    if (savedRole && defaultProfiles[savedRole]) {
-      setRole(savedRole);
-      setUser(defaultProfiles[savedRole]);
+    if (savedUserStr) {
+      try {
+        const parsed = JSON.parse(savedUserStr);
+        setUser(parsed);
+        if (parsed.primaryRole) setRole(parsed.primaryRole);
+        return;
+      } catch {
+        // ignore
+      }
     }
-    syncBackendAuth(initialRole);
+
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const initialRole = savedRole && defaultProfiles[savedRole] ? savedRole : 'WORKER';
+      if (savedRole && defaultProfiles[savedRole]) {
+        setRole(savedRole);
+        setUser(defaultProfiles[savedRole]);
+      } else {
+        setRole('WORKER');
+        setUser(defaultProfiles.WORKER);
+      }
+      syncBackendAuth(initialRole);
+    } else {
+      if (savedRole) setRole(savedRole);
+    }
   }, []);
 
   const switchRole = (newRole: UserRole) => {
-    setRole(newRole);
-    setUser(defaultProfiles[newRole] || defaultProfiles.WORKER);
-    localStorage.setItem('earnxpress_role', newRole);
-    syncBackendAuth(newRole);
+    if (ENABLE_DEMO_SHORTCUTS) {
+      setRole(newRole);
+      setUser(defaultProfiles[newRole] || defaultProfiles.WORKER);
+      localStorage.setItem('earnxpress_role', newRole);
+      syncBackendAuth(newRole);
+    } else if (user) {
+      setRole(newRole);
+      localStorage.setItem('earnxpress_role', newRole);
+    }
+  };
+
+  const loginWithCredentials = async (email: string, pass: string): Promise<{ success: boolean; user?: any; message?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password: pass }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.data?.accessToken) {
+        const u = json.data.user;
+        const token = json.data.accessToken;
+        localStorage.setItem('earnxpress_token', token);
+        if (u) {
+          localStorage.setItem('earnxpress_user', JSON.stringify(u));
+          localStorage.setItem('earnxpress_role', u.primaryRole);
+          setUser(u);
+          setRole(u.primaryRole);
+        }
+        return { success: true, user: u };
+      } else {
+        const msg = json?.message || 'Invalid email or password';
+        return { success: false, message: Array.isArray(msg) ? msg.join(', ') : msg };
+      }
+    } catch {
+      return { success: false, message: 'Server communication error. Please try again.' };
+    }
   };
 
   const login = (email: string, selectedRole: UserRole) => {
-    const profile = defaultProfiles[selectedRole] || defaultProfiles.WORKER;
-    const loggedInUser = { ...profile, email };
-    setUser(loggedInUser);
-    setRole(selectedRole);
-    localStorage.setItem('earnxpress_role', selectedRole);
-    syncBackendAuth(selectedRole);
+    if (ENABLE_DEMO_SHORTCUTS) {
+      const profile = defaultProfiles[selectedRole] || defaultProfiles.WORKER;
+      const loggedInUser = { ...profile, email };
+      setUser(loggedInUser);
+      setRole(selectedRole);
+      localStorage.setItem('earnxpress_role', selectedRole);
+      syncBackendAuth(selectedRole);
+    }
   };
 
   const logout = () => {
@@ -196,6 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         switchRole,
         login,
+        loginWithCredentials,
         logout,
       }}
     >

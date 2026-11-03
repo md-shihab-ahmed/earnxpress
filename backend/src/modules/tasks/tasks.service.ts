@@ -271,6 +271,125 @@ export class TasksService {
   }
 
   /**
+   * Database-backed live public metrics for marketplace discovery
+   */
+  async getPublicPlatformStats() {
+    const [totalTasks, totalWorkers, totalParticipations, approvedParticipations, slotSums] = await Promise.all([
+      this.prisma.task.count({ where: { status: { in: [TaskStatus.OPEN, TaskStatus.FULL] } } }),
+      this.prisma.user.count({ where: { primaryRole: 'WORKER', status: 'ACTIVE' } }),
+      this.prisma.workerParticipation.count(),
+      this.prisma.workerParticipation.count({ where: { status: ParticipationStatus.APPROVED } }),
+      this.prisma.task.aggregate({
+        _sum: {
+          totalSlots: true,
+          availableSlots: true,
+        },
+      }),
+    ]);
+
+    const settlementRate = totalParticipations > 0
+      ? ((approvedParticipations / totalParticipations) * 100).toFixed(1)
+      : '100.0';
+
+    return {
+      activeTasksCount: totalTasks,
+      verifiedWorkersCount: totalWorkers,
+      totalSlotsCount: slotSums._sum.totalSlots || 0,
+      availableSlotsCount: slotSums._sum.availableSlots || 0,
+      totalParticipationsCount: totalParticipations,
+      settlementRatePercent: settlementRate,
+    };
+  }
+
+  /**
+   * Get all task participation records for a worker
+   */
+  async getWorkerParticipations(workerId: string) {
+    const list = await this.prisma.workerParticipation.findMany({
+      where: { workerId },
+      include: {
+        task: {
+          select: {
+            id: true,
+            title: true,
+            taskModel: true,
+            status: true,
+            totalSlots: true,
+            availableSlots: true,
+            unitBudgetCents: true,
+            startDeadlineHours: true,
+            completionDurationHours: true,
+            reviewSlaHours: true,
+            maxRevisions: true,
+            createdAt: true,
+          },
+        },
+        milestones: { orderBy: { milestoneOrder: 'asc' } },
+        submissions: {
+          include: {
+            versions: { orderBy: { versionNumber: 'desc' } },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return list.map((p) => ({
+      ...p,
+      task: {
+        ...p.task,
+        unitBudgetCents: p.task.unitBudgetCents.toString(),
+        formattedUnitUSD: `DEMO $${(Number(p.task.unitBudgetCents) / 100).toFixed(2)} USD`,
+      },
+    }));
+  }
+
+  /**
+   * Get a single participation record by id with milestones & submissions
+   */
+  async getParticipationById(userId: string, participationId: string) {
+    const p = await this.prisma.workerParticipation.findUnique({
+      where: { id: participationId },
+      include: {
+        task: {
+          include: {
+            buyer: {
+              select: {
+                id: true,
+                profile: { select: { displayName: true, countryCode: true, avatarUrl: true, reputationScore: true } },
+              },
+            },
+            instructionVersions: { orderBy: { versionNumber: 'desc' }, take: 1 },
+          },
+        },
+        milestones: { orderBy: { milestoneOrder: 'asc' } },
+        submissions: {
+          include: {
+            versions: { orderBy: { versionNumber: 'desc' } },
+          },
+        },
+      },
+    });
+
+    if (!p) throw new NotFoundException('Participation record not found');
+    if (p.workerId !== userId && p.task.buyerId !== userId) {
+      throw new ForbiddenException('You do not have access to this participation');
+    }
+
+    const latestInstruction = p.task.instructionVersions[0] || null;
+
+    return {
+      ...p,
+      task: {
+        ...p.task,
+        instructions: latestInstruction,
+        unitBudgetCents: p.task.unitBudgetCents.toString(),
+        formattedUnitUSD: `DEMO $${(Number(p.task.unitBudgetCents) / 100).toFixed(2)} USD`,
+      },
+    };
+  }
+
+  /**
    * Real-time Task Participation Dashboard stats
    */
   async getParticipationStats(taskId: string) {

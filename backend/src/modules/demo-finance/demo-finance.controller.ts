@@ -6,6 +6,7 @@ import {
   Query,
   UseGuards,
   Ip,
+  ForbiddenException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiResponse } from '@nestjs/swagger';
 import { DemoFinanceService } from './demo-finance.service';
@@ -37,6 +38,12 @@ export class DemoFinanceController {
     @Body() dto: ClaimFaucetDto,
     @Ip() ipAddress: string,
   ) {
+    if (process.env.NODE_ENV === 'production' && process.env.ENABLE_DEMO_FAUCET !== 'true') {
+      throw new ForbiddenException({
+        code: 'ERR_FAUCET_DISABLED',
+        message: 'Demo faucet is completely disabled in production mode.',
+      });
+    }
     const amountCents = dto.amountCents ? BigInt(dto.amountCents) : 100000n;
     return this.demoFinanceService.claimFaucet(userId, amountCents, ipAddress);
   }

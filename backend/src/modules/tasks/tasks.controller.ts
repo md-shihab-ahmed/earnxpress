@@ -32,6 +32,32 @@ export class TasksController {
     return this.tasksService.findTasks(query);
   }
 
+  @Get('public/platform-stats')
+  @ApiOperation({ summary: 'Get live database-backed public marketplace metrics' })
+  async getPublicPlatformStats() {
+    return this.tasksService.getPublicPlatformStats();
+  }
+
+  @Get('participations/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.WORKER, UserRole.PLATFORM_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get all task participation records for the current worker' })
+  async getMyParticipations(@CurrentUser('id') workerId: string) {
+    return this.tasksService.getWorkerParticipations(workerId);
+  }
+
+  @Get('participations/:id')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get details for a single participation record' })
+  async getParticipationById(
+    @CurrentUser('id') userId: string,
+    @Param('id') participationId: string,
+  ) {
+    return this.tasksService.getParticipationById(userId, participationId);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get complete task details, versioned instructions, and Participation Dashboard' })
   async getTaskById(@Param('id') taskId: string) {
