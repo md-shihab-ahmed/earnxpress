@@ -10,6 +10,7 @@ import { UsersModule } from './modules/users/users.module';
 import { DemoFinanceModule } from './modules/demo-finance/demo-finance.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { PaymentsModule } from './modules/payments/payments.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { AdminModule } from './modules/admin/admin.module';
     DemoFinanceModule,
     TasksModule,
     AdminModule,
+    PaymentsModule,
   ],
   providers: [
     {

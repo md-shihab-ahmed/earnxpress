@@ -83,6 +83,68 @@ enum DemoAccountType {
   DEMO_WORKER_PENDING_DISPUTE
 }
 
+enum RealAccountType {
+  SYSTEM_COMMISSION_REVENUE
+  SYSTEM_ESCROW_HOLDING
+  SYSTEM_PAYMENT_CLEARING
+  SYSTEM_PAYOUT_CLEARING
+  BUYER_REAL_AVAILABLE
+  BUYER_REAL_ESCROW_LOCKED
+  WORKER_REAL_AVAILABLE
+  WORKER_REAL_WITHDRAWAL_PENDING
+}
+
+enum PaymentProviderType {
+  STRIPE
+  PAYPAL
+  SSLCOMMERZ
+  SANDBOX_MOCK
+}
+
+enum PaymentOrderStatus {
+  PENDING
+  REQUIRES_PAYMENT_METHOD
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  PROCESSED
+  FAILED
+  DUPLICATE_IGNORED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum WithdrawalMethodType {
+  BANK_TRANSFER
+  PAYONEER
+  BKASH
+  NAGAD
+  WISE
+}
+
+enum EscrowFundingStatus {
+  UNFUNDED
+  PENDING_CONFIRMATION
+  FUNDED_DEMO
+  FUNDED_REAL
+  PARTIALLY_REFUNDED
+  REFUNDED
+  SETTLED
+}
+
 // -------------------------------------------------------------
 // USER & IDENTITY DOMAIN
 // -------------------------------------------------------------
@@ -110,6 +172,9 @@ model User {
   reviewsGiven         Review[]               @relation("ReviewsGiven")
   reviewsReceived      Review[]               @relation("ReviewsReceived")
   demoAccounts         DemoLedgerAccount[]
+  realAccounts         RealLedgerAccount[]
+  paymentOrders        PaymentOrder[]
+  withdrawals          WithdrawalRequest[]
   conversations        ConversationParticipant[]
   sentMessages         Message[]
   notifications        Notification[]
@@ -228,6 +293,7 @@ model Task {
   reviewSlaHours          Int                     @default(72) // 72-hour review SLA
   currentVersionNumber    Int                     @default(1)
   winningParticipationId String?                 @db.Uuid // for FIRST_APPROVED model
+  escrowFundingStatus     EscrowFundingStatus     @default(UNFUNDED)
   createdAt               DateTime                @default(now()) @db.Timestamptz(6)
   updatedAt               DateTime                @updatedAt @db.Timestamptz(6)
 
@@ -239,6 +305,7 @@ model Task {
   participations          WorkerParticipation[]
   conversations           Conversation[]
   reviews                 Review[]
+  paymentOrders           PaymentOrder[]
 
   @@index([status])
   @@index([categoryId, subcategoryId])
@@ -437,6 +504,135 @@ model DemoLedgerEntry {
   creditAccount     DemoLedgerAccount      @relation("CreditDemoAccount", fields: [creditAccountId], references: [id])
 
   @@index([transactionId])
+}
+
+// -------------------------------------------------------------
+// FINANCIAL DOMAIN (REAL INTERNATIONAL PAYMENTS & DOUBLE-ENTRY LEDGER)
+// -------------------------------------------------------------
+
+model RealLedgerAccount {
+  id            String             @id @default(uuid()) @db.Uuid
+  userId        String?            @db.Uuid
+  accountType   RealAccountType
+  currency      String             @default("USD") @db.VarChar(3)
+  balanceCents  BigInt             @default(0) // stored in integer minor currency units
+  createdAt     DateTime           @default(now()) @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @db.Timestamptz(6)
+
+  user          User?              @relation(fields: [userId], references: [id])
+  debitEntries  RealLedgerEntry[]  @relation("DebitRealAccount")
+  creditEntries RealLedgerEntry[]  @relation("CreditRealAccount")
+
+  @@unique([userId, accountType, currency])
+  @@index([accountType])
+}
+
+model RealLedgerTransaction {
+  id             String             @id @default(uuid()) @db.Uuid
+  referenceType  String             @db.VarChar(64) // e.g. "BUYER_DEPOSIT", "TASK_ESCROW_LOCK", "SETTLEMENT_PAYOUT", "PLATFORM_COMMISSION", "REFUND", "WITHDRAWAL"
+  referenceId    String             @db.Uuid
+  idempotencyKey String?            @unique @db.VarChar(128)
+  description    String             @db.Text
+  createdAt      DateTime           @default(now()) @db.Timestamptz(6)
+
+  entries        RealLedgerEntry[]
+
+  @@index([referenceType, referenceId])
+}
+
+model RealLedgerEntry {
+  id                String                 @id @default(uuid()) @db.Uuid
+  transactionId     String                 @db.Uuid
+  debitAccountId    String                 @db.Uuid
+  creditAccountId   String                 @db.Uuid
+  amountCents       BigInt                 // stored in integer minor currency units
+  createdAt         DateTime               @default(now()) @db.Timestamptz(6)
+
+  transaction       RealLedgerTransaction  @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  debitAccount      RealLedgerAccount      @relation("DebitRealAccount", fields: [debitAccountId], references: [id])
+  creditAccount     RealLedgerAccount      @relation("CreditRealAccount", fields: [creditAccountId], references: [id])
+
+  @@index([transactionId])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+}
+
+model PaymentOrder {
+  id                   String              @id @default(uuid()) @db.Uuid
+  buyerId              String              @db.Uuid
+  taskId               String?             @db.Uuid
+  provider             PaymentProviderType
+  providerOrderId      String?             @db.VarChar(128) // e.g. Stripe pi_xxx, SSLCommerz tran_id, PayPal order_id
+  providerClientSecret String?             @db.Text
+  amountCents          BigInt              // USD minor currency units (cents)
+  currency             String              @default("USD") @db.VarChar(3)
+  chargedAmountMinor   BigInt?             // Amount in local payment currency (e.g. BDT poisha, EUR cents)
+  chargedCurrency      String?             @db.VarChar(3)
+  exchangeRate         Decimal?            @db.Decimal(12, 4)
+  status               PaymentOrderStatus  @default(PENDING)
+  idempotencyKey       String              @unique @db.VarChar(128)
+  metadata             Json?
+  failureReason        String?             @db.Text
+  createdAt            DateTime            @default(now()) @db.Timestamptz(6)
+  updatedAt            DateTime            @updatedAt @db.Timestamptz(6)
+  confirmedAt          DateTime?           @db.Timestamptz(6)
+
+  buyer                User                @relation(fields: [buyerId], references: [id])
+  task                 Task?               @relation(fields: [taskId], references: [id])
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([provider, providerOrderId])
+}
+
+model PaymentWebhookEvent {
+  id              String                  @id @default(uuid()) @db.Uuid
+  provider        PaymentProviderType
+  eventId         String                  @db.VarChar(128) // unique provider event identifier
+  eventType       String                  @db.VarChar(100)
+  status          WebhookProcessingStatus @default(RECEIVED)
+  payload         Json
+  signatureHeader String?                 @db.Text
+  processedAt     DateTime?               @db.Timestamptz(6)
+  errorMessage    String?                 @db.Text
+  createdAt       DateTime                @default(now()) @db.Timestamptz(6)
+
+  @@unique([provider, eventId])
+  @@index([status])
+}
+
+model WithdrawalRequest {
+  id                         String                @id @default(uuid()) @db.Uuid
+  workerId                   String                @db.Uuid
+  method                     WithdrawalMethodType
+  destinationDetailsMasked   Json                  // masked destination, e.g. bank name + masked account or phone
+  amountCents                BigInt                // USD minor currency units (cents)
+  payoutCurrency             String                @default("USD") @db.VarChar(3)
+  estimatedPayoutAmountMinor BigInt?
+  exchangeRate               Decimal?              @db.Decimal(12, 4)
+  status                     WithdrawalStatus      @default(PENDING)
+  providerPayoutId           String?               @db.VarChar(128)
+  rejectionReason            String?               @db.Text
+  requestedAt                DateTime              @default(now()) @db.Timestamptz(6)
+  processedAt                DateTime?             @db.Timestamptz(6)
+  completedAt                DateTime?             @db.Timestamptz(6)
+
+  worker                     User                  @relation(fields: [workerId], references: [id])
+
+  @@index([workerId])
+  @@index([status])
+}
+
+model CurrencyExchangeRate {
+  id             String    @id @default(uuid()) @db.Uuid
+  sourceCurrency String    @db.VarChar(3)
+  targetCurrency String    @db.VarChar(3)
+  rate           Decimal   @db.Decimal(12, 4)
+  provider       String    @db.VarChar(64)
+  effectiveAt    DateTime  @db.Timestamptz(6)
+  createdAt      DateTime  @default(now()) @db.Timestamptz(6)
+
+  @@unique([sourceCurrency, targetCurrency])
 }
 
 // -------------------------------------------------------------

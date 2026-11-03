@@ -14,24 +14,40 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
+function serializeBigInt(obj: any): any {
+  if (obj === null || obj === undefined) return obj;
+  if (typeof obj === 'bigint') return obj.toString();
+  if (obj instanceof Date) return obj.toISOString();
+  if (Array.isArray(obj)) return obj.map(serializeBigInt);
+  if (typeof obj === 'object') {
+    const res: Record<string, any> = {};
+    for (const key of Object.keys(obj)) {
+      res[key] = serializeBigInt(obj[key]);
+    }
+    return res;
+  }
+  return obj;
+}
+
 @Injectable()
 export class TransformResponseInterceptor<T> implements NestInterceptor<T, ApiResponse<T>> {
   intercept(context: ExecutionContext, next: CallHandler): Observable<ApiResponse<T>> {
     return next.handle().pipe(
       map(response => {
+        const serialized = serializeBigInt(response);
         // Handle custom meta if provided
-        if (response && typeof response === 'object' && 'data' in response && 'meta' in response) {
+        if (serialized && typeof serialized === 'object' && 'data' in serialized && 'meta' in serialized) {
           return {
             success: true,
-            data: response.data,
-            meta: response.meta,
+            data: serialized.data,
+            meta: serialized.meta,
             timestamp: new Date().toISOString(),
           };
         }
 
         return {
           success: true,
-          data: response ?? null,
+          data: serialized ?? null,
           timestamp: new Date().toISOString(),
         };
       }),

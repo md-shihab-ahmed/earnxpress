@@ -5,16 +5,20 @@ import {
   ConflictException,
   BadRequestException,
   Logger,
+  Inject,
+  forwardRef,
+  Optional,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DemoFinanceService } from '../demo-finance/demo-finance.service';
 import { AuditService } from '../audit/audit.service';
+import { PaymentsService } from '../payments/payments.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { QueryTaskDto } from './dto/query-task.dto';
 import { SubmitTaskDto } from './dto/submit-task.dto';
 import { ReviewSubmissionDto, ReviewDecision } from './dto/review-submission.dto';
-import { TaskStatus, ParticipationStatus, TaskModel } from '@prisma/client';
+import { TaskStatus, ParticipationStatus, TaskModel, EscrowFundingStatus } from '@prisma/client';
 
 @Injectable()
 export class TasksService {
@@ -24,6 +28,9 @@ export class TasksService {
     private readonly prisma: PrismaService,
     private readonly demoFinanceService: DemoFinanceService,
     private readonly auditService: AuditService,
+    @Optional()
+    @Inject(forwardRef(() => PaymentsService))
+    private readonly paymentsService?: PaymentsService,
   ) {}
 
   /**
@@ -188,6 +195,7 @@ export class TasksService {
       title: t.title,
       taskModel: t.taskModel,
       status: t.status,
+      escrowFundingStatus: t.escrowFundingStatus,
       totalSlots: t.totalSlots,
       availableSlots: t.availableSlots,
       unitBudgetCents: t.unitBudgetCents.toString(),
@@ -245,6 +253,7 @@ export class TasksService {
       title: task.title,
       taskModel: task.taskModel,
       status: task.status,
+      escrowFundingStatus: task.escrowFundingStatus,
       unitBudgetCents: task.unitBudgetCents.toString(),
       formattedUnitUSD: `DEMO $${(Number(task.unitBudgetCents) / 100).toFixed(2)} USD`,
       totalSlots: task.totalSlots,
@@ -784,16 +793,29 @@ export class TasksService {
     }
 
     if (dto.decision === ReviewDecision.APPROVE) {
+      if (participation.task.escrowFundingStatus === EscrowFundingStatus.FUNDED_REAL && this.paymentsService) {
+        await this.paymentsService.settleWorkerSlotReal(participation.id);
+      }
+
       return this.prisma.$transaction(async (tx) => {
-        // 1. Release DEMO escrow payout to worker
-        const payout = await this.demoFinanceService.disburseSlotPayout(
-          buyerId,
-          participation.workerId,
-          participation.taskId,
-          participation.id,
-          participation.task.unitBudgetCents,
-          tx,
-        );
+        const unitBudgetCents = BigInt(participation.task.unitBudgetCents || 0);
+        const workerFeeCents = BigInt(participation.task.workerFeeCents || 0);
+        let netPayoutCents = unitBudgetCents > workerFeeCents ? unitBudgetCents - workerFeeCents : unitBudgetCents;
+        let formattedPayout = `$${(Number(netPayoutCents) / 100).toFixed(2)} USD`;
+
+        if (participation.task.escrowFundingStatus !== EscrowFundingStatus.FUNDED_REAL) {
+          // Release DEMO escrow payout to worker
+          const payout = await this.demoFinanceService.disburseSlotPayout(
+            buyerId,
+            participation.workerId,
+            participation.taskId,
+            participation.id,
+            participation.task.unitBudgetCents,
+            tx,
+          );
+          netPayoutCents = payout.workerNetPayoutCents;
+          formattedPayout = `DEMO $${(Number(payout.workerNetPayoutCents) / 100).toFixed(2)} USD`;
+        }
 
         const now = new Date();
         const updated = await tx.workerParticipation.update({
@@ -871,11 +893,11 @@ export class TasksService {
           resourceId: participationId,
           newState: {
             status: ParticipationStatus.APPROVED,
-            workerPayoutCents: payout.workerNetPayoutCents.toString(),
+            workerPayoutCents: netPayoutCents.toString(),
             approvedAt: now,
           },
           ipAddress,
-          reason: 'Buyer approved deliverables; demo payout released',
+          reason: 'Buyer approved deliverables; payout disbursed',
         });
 
         return {
@@ -883,9 +905,9 @@ export class TasksService {
           participationId: updated.id,
           status: updated.status,
           approvedAt: updated.approvedAt,
-          workerNetPayoutCents: payout.workerNetPayoutCents.toString(),
-          formattedPayoutUSD: `DEMO $${(Number(payout.workerNetPayoutCents) / 100).toFixed(2)} USD`,
-          message: 'Deliverables approved and DEMO payout disbursed to worker.',
+          workerNetPayoutCents: netPayoutCents.toString(),
+          formattedPayoutUSD: formattedPayout,
+          message: 'Deliverables approved and payout disbursed to worker.',
         };
       });
     }

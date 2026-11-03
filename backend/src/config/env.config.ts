@@ -20,6 +20,18 @@ export const EnvSchema = z.object({
   THROTTLE_TTL: z.coerce.number().default(60),
   THROTTLE_LIMIT: z.coerce.number().default(120),
   DEMO_FAUCET_AMOUNT_CENTS: z.coerce.number().default(100000),
+  ENABLE_REAL_PAYMENTS: z.coerce.boolean().default(false),
+  BASE_FRONTEND_URL: z.string().default('http://localhost:3000'),
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  SSLCOMMERZ_STORE_ID: z.string().optional(),
+  SSLCOMMERZ_STORE_PASS: z.string().optional(),
+  SSLCOMMERZ_IS_SANDBOX: z.coerce.boolean().default(true),
+  PAYPAL_CLIENT_ID: z.string().optional(),
+  PAYPAL_CLIENT_SECRET: z.string().optional(),
+  PAYPAL_WEBHOOK_ID: z.string().optional(),
+  PAYPAL_ENVIRONMENT: z.enum(['sandbox', 'live']).default('sandbox'),
+  SANDBOX_MOCK_WEBHOOK_SECRET: z.string().default('earnxpress_sandbox_webhook_secret_key_999!'),
 });
 
 export type EnvConfig = z.infer<typeof EnvSchema>;
@@ -46,6 +58,17 @@ export function validateEnv(config: Record<string, unknown>): EnvConfig {
           ', ',
         )}]. Production environment requires cryptographically secure, high-entropy secrets.`
       );
+    }
+
+    if (data.ENABLE_REAL_PAYMENTS) {
+      const hasStripe = Boolean(data.STRIPE_SECRET_KEY && data.STRIPE_WEBHOOK_SECRET);
+      const hasSSLCommerz = Boolean(data.SSLCOMMERZ_STORE_ID && data.SSLCOMMERZ_STORE_PASS);
+      const hasPayPal = Boolean(data.PAYPAL_CLIENT_ID && data.PAYPAL_CLIENT_SECRET);
+      if (!hasStripe && !hasSSLCommerz && !hasPayPal) {
+        throw new Error(
+          'Production Payment Blocker: ENABLE_REAL_PAYMENTS is true, but no verified payment gateway credentials (Stripe, SSLCommerz, or PayPal) are configured.',
+        );
+      }
     }
   }
 

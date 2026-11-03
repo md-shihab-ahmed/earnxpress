@@ -9,7 +9,7 @@ import { TransformResponseInterceptor } from './common/interceptors/transform-re
 
 async function bootstrap() {
   const logger = new Logger('EarnXpressBootstrap');
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { rawBody: true });
 
   const isProduction = process.env.NODE_ENV === 'production';
 
