@@ -6,8 +6,11 @@ import { AdminConsoleClient } from './admin-console-client';
 import { ShieldCheck } from 'lucide-react';
 
 export default async function AdminPage() {
-  const stats = await api.getAdminStats();
-  const logs = await api.getAuditLogs();
+  const [stats, logs, usersRes] = await Promise.all([
+    api.getAdminStats(),
+    api.getAuditLogs(),
+    api.getAdminUsers({ limit: 50 }),
+  ]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
@@ -26,7 +29,11 @@ export default async function AdminPage() {
         </div>
       </div>
 
-      <AdminConsoleClient initialStats={stats} initialLogs={logs} />
+      <AdminConsoleClient
+        initialStats={stats}
+        initialLogs={logs}
+        initialUsers={usersRes?.users || []}
+      />
     </div>
   );
 }

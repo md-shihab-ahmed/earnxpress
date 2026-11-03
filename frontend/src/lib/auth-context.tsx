@@ -10,6 +10,13 @@ interface AuthContextType {
   switchRole: (newRole: UserRole) => void;
   login: (email: string, role: UserRole) => void;
   loginWithCredentials: (email: string, pass: string) => Promise<{ success: boolean; user?: any; message?: string }>;
+  registerWithCredentials: (params: {
+    email: string;
+    pass: string;
+    displayName: string;
+    countryCode: string;
+    primaryRole: 'WORKER' | 'BUYER';
+  }) => Promise<{ success: boolean; user?: any; message?: string }>;
   logout: () => void;
 }
 
@@ -111,6 +118,21 @@ const defaultProfiles: Record<UserRole, User> = {
   },
 };
 
+function setAuthCookies(token?: string, role?: string, user?: any) {
+  if (typeof document === 'undefined') return;
+  if (token && role) {
+    document.cookie = `earnxpress_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+    document.cookie = `earnxpress_role=${encodeURIComponent(role)}; path=/; max-age=604800; SameSite=Lax`;
+    if (user) {
+      document.cookie = `earnxpress_user=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=604800; SameSite=Lax`;
+    }
+  } else {
+    document.cookie = 'earnxpress_token=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'earnxpress_role=; path=/; max-age=0; SameSite=Lax';
+    document.cookie = 'earnxpress_user=; path=/; max-age=0; SameSite=Lax';
+  }
+}
+
 const ENABLE_DEMO_SHORTCUTS = process.env.NEXT_PUBLIC_ENABLE_DEMO_SHORTCUTS === 'true';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
 
@@ -121,6 +143,7 @@ const AuthContext = createContext<AuthContextType>({
   switchRole: () => {},
   login: () => {},
   loginWithCredentials: async () => ({ success: false }),
+  registerWithCredentials: async () => ({ success: false }),
   logout: () => {},
 });
 
@@ -148,6 +171,7 @@ async function syncBackendAuth(targetRole: UserRole) {
         localStorage.setItem('earnxpress_token', json.data.accessToken);
         if (json.data.user) {
           localStorage.setItem('earnxpress_user', JSON.stringify(json.data.user));
+          setAuthCookies(json.data.accessToken, targetRole, json.data.user);
         }
       }
     }
@@ -161,7 +185,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     if (typeof window !== 'undefined') {
       const savedUser = localStorage.getItem('earnxpress_user');
-      if (savedUser) {
+      const token = localStorage.getItem('earnxpress_token');
+      if (token && savedUser) {
         try {
           return JSON.parse(savedUser);
         } catch {
@@ -173,13 +198,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   useEffect(() => {
+    const token = localStorage.getItem('earnxpress_token');
     const savedUserStr = localStorage.getItem('earnxpress_user');
     const savedRole = localStorage.getItem('earnxpress_role') as UserRole;
-    if (savedUserStr) {
+
+    if (token && savedUserStr) {
       try {
         const parsed = JSON.parse(savedUserStr);
         setUser(parsed);
-        if (parsed.primaryRole) setRole(parsed.primaryRole);
+        if (parsed.primaryRole) {
+          setRole(parsed.primaryRole);
+          setAuthCookies(token, parsed.primaryRole, parsed);
+        }
         return;
       } catch {
         // ignore
@@ -197,7 +227,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       syncBackendAuth(initialRole);
     } else {
-      if (savedRole) setRole(savedRole);
+      setUser(null);
+      setAuthCookies();
     }
   }, []);
 
@@ -228,16 +259,58 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (u) {
           localStorage.setItem('earnxpress_user', JSON.stringify(u));
           localStorage.setItem('earnxpress_role', u.primaryRole);
+          setAuthCookies(token, u.primaryRole, u);
           setUser(u);
           setRole(u.primaryRole);
         }
         return { success: true, user: u };
       } else {
-        const msg = json?.message || 'Invalid email or password';
+        const msg = json?.message || json?.error?.message || 'Invalid email or password';
         return { success: false, message: Array.isArray(msg) ? msg.join(', ') : msg };
       }
     } catch {
       return { success: false, message: 'Server communication error. Please try again.' };
+    }
+  };
+
+  const registerWithCredentials = async (params: {
+    email: string;
+    pass: string;
+    displayName: string;
+    countryCode: string;
+    primaryRole: 'WORKER' | 'BUYER';
+  }): Promise<{ success: boolean; user?: any; message?: string }> => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: params.email,
+          password: params.pass,
+          displayName: params.displayName,
+          countryCode: params.countryCode,
+          primaryRole: params.primaryRole,
+        }),
+      });
+      const json = await res.json().catch(() => null);
+      if (res.ok && json?.data?.accessToken) {
+        const u = json.data.user;
+        const token = json.data.accessToken;
+        localStorage.setItem('earnxpress_token', token);
+        if (u) {
+          localStorage.setItem('earnxpress_user', JSON.stringify(u));
+          localStorage.setItem('earnxpress_role', u.primaryRole);
+          setAuthCookies(token, u.primaryRole, u);
+          setUser(u);
+          setRole(u.primaryRole);
+        }
+        return { success: true, user: u };
+      } else {
+        const msg = json?.message || json?.error?.message || 'Registration failed';
+        return { success: false, message: Array.isArray(msg) ? msg.join(', ') : msg };
+      }
+    } catch {
+      return { success: false, message: 'Server communication error during registration.' };
     }
   };
 
@@ -257,6 +330,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('earnxpress_role');
     localStorage.removeItem('earnxpress_token');
     localStorage.removeItem('earnxpress_user');
+    setAuthCookies();
   };
 
   return (
@@ -268,6 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         switchRole,
         login,
         loginWithCredentials,
+        registerWithCredentials,
         logout,
       }}
     >

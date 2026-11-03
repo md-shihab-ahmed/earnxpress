@@ -37,12 +37,49 @@ export function Navbar() {
     }
   };
 
-  const navLinks = [
-    { label: 'Marketplace', href: '/tasks' },
-    { label: 'Worker Portal', href: '/worker' },
-    { label: 'Buyer Portal', href: '/buyer' },
-    { label: 'Governance', href: '/admin' },
-  ];
+  // Dynamic role-based navigation links
+  const getNavLinks = () => {
+    if (!isAuthenticated || !user) {
+      return [
+        { label: 'Marketplace', href: '/tasks' },
+        { label: 'About', href: '/about' },
+        { label: 'How It Works', href: '/help' },
+      ];
+    }
+
+    if (role === 'WORKER') {
+      return [
+        { label: 'Marketplace', href: '/tasks' },
+        { label: 'Worker Dashboard', href: '/worker' },
+        { label: 'My Wallet', href: '/worker/wallet' },
+      ];
+    }
+
+    if (role === 'BUYER') {
+      return [
+        { label: 'Marketplace', href: '/tasks' },
+        { label: 'Buyer Dashboard', href: '/buyer' },
+        { label: 'Submissions', href: '/buyer/submissions' },
+        { label: 'Buyer Wallet', href: '/buyer/wallet' },
+      ];
+    }
+
+    if (
+      role === 'PLATFORM_OWNER' ||
+      role === 'SUPER_ADMIN' ||
+      role === 'MODERATOR' ||
+      role === 'SUPPORT_AGENT'
+    ) {
+      return [
+        { label: 'Admin Governance', href: '/admin' },
+        { label: 'Marketplace', href: '/tasks' },
+      ];
+    }
+
+    return [{ label: 'Marketplace', href: '/tasks' }];
+  };
+
+  const navLinks = getNavLinks();
 
   return (
     <header className="sticky top-0 z-50 bg-navy-900 text-white border-b border-navy-800 shadow-md">
@@ -137,16 +174,80 @@ export function Navbar() {
                 </button>
               </div>
             ) : isAuthenticated && user ? (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2.5">
+                {/* User Identity Pill */}
                 <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-navy-950 border border-navy-800 text-xs">
                   <UserIcon className="w-3.5 h-3.5 text-teal-400" />
                   <span className="text-slate-200 font-medium max-w-[120px] truncate">
                     {user.profile?.displayName || user.email}
                   </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-teal-900/60 text-teal-300 font-mono">
-                    {role}
+                  <span
+                    className={`text-[10px] px-1.5 py-0.5 rounded font-mono uppercase ${
+                      role === 'PLATFORM_OWNER' || role === 'SUPER_ADMIN'
+                        ? 'bg-purple-900/60 text-purple-300 border border-purple-800'
+                        : role === 'BUYER'
+                        ? 'bg-blue-900/60 text-blue-300'
+                        : 'bg-teal-900/60 text-teal-300'
+                    }`}
+                  >
+                    {role === 'PLATFORM_OWNER' ? 'OWNER' : role === 'SUPER_ADMIN' ? 'ADMIN' : role}
                   </span>
                 </div>
+
+                {/* Worker Specific Actions */}
+                {role === 'WORKER' && (
+                  <>
+                    <Link
+                      href="/worker/wallet"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-800 hover:bg-navy-700/80 border border-navy-700 text-slate-200 text-xs font-mono transition-colors"
+                      title="Inspect Worker Wallet & Earnings"
+                    >
+                      <Wallet className="w-3.5 h-3.5 text-teal-400" />
+                      <span className="text-teal-400 font-bold">Wallet</span>
+                    </Link>
+                    <Link
+                      href="/tasks"
+                      className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                    >
+                      <Search className="w-3.5 h-3.5" />
+                      Find Tasks
+                    </Link>
+                  </>
+                )}
+
+                {/* Buyer Specific Actions */}
+                {role === 'BUYER' && (
+                  <>
+                    <Link
+                      href="/buyer/wallet"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-800 hover:bg-navy-700/80 border border-navy-700 text-slate-200 text-xs font-mono transition-colors"
+                      title="Inspect Buyer Wallet & Escrow"
+                    >
+                      <Wallet className="w-3.5 h-3.5 text-teal-400" />
+                      <span className="text-teal-400 font-bold">Wallet</span>
+                    </Link>
+                    <Link
+                      href="/buyer/tasks/new"
+                      className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                    >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      Post Campaign
+                    </Link>
+                  </>
+                )}
+
+                {/* Admin Specific Actions */}
+                {(role === 'PLATFORM_OWNER' || role === 'SUPER_ADMIN' || role === 'MODERATOR') && (
+                  <Link
+                    href="/admin"
+                    className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    Admin Console
+                  </Link>
+                )}
+
+                {/* Sign Out */}
                 <button
                   type="button"
                   onClick={logout}
@@ -160,46 +261,17 @@ export function Navbar() {
               <div className="flex items-center gap-2">
                 <Link
                   href="/login"
-                  className="text-xs font-semibold px-3 py-1.5 text-slate-300 hover:text-white hover:bg-navy-800 rounded-lg transition-colors"
+                  className="text-xs font-semibold px-3.5 py-1.5 text-slate-200 hover:text-white hover:bg-navy-800 rounded-lg transition-colors border border-navy-700"
                 >
                   Sign In
                 </Link>
                 <Link
                   href="/register"
-                  className="text-xs font-semibold px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors"
+                  className="text-xs font-semibold px-3.5 py-1.5 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors shadow-sm"
                 >
                   Register
                 </Link>
               </div>
-            )}
-
-            {/* Wallet Button */}
-            <Link
-              href={role === 'BUYER' ? '/buyer/wallet' : '/worker/wallet'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-navy-800 hover:bg-navy-700/80 border border-navy-700 text-slate-200 text-xs font-mono transition-colors"
-              title="Inspect Demo Wallet & Claim Faucet"
-            >
-              <Wallet className="w-3.5 h-3.5 text-teal-400" />
-              <span className="text-teal-400 font-bold">DEMO $185.00</span>
-            </Link>
-
-            {/* Post Task CTA for Buyers */}
-            {role === 'BUYER' ? (
-              <Link
-                href="/buyer/tasks/new"
-                className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
-              >
-                <PlusCircle className="w-3.5 h-3.5" />
-                Post Campaign
-              </Link>
-            ) : (
-              <Link
-                href="/tasks"
-                className="flex items-center gap-1.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
-              >
-                <Search className="w-3.5 h-3.5" />
-                Find Work
-              </Link>
             )}
 
             {/* Theme Toggle */}

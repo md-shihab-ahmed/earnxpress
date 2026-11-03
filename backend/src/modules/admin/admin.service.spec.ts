@@ -14,6 +14,7 @@ describe('AdminService (Governance, Owner Isolation & Sanctions)', () => {
     mockPrisma = {
       user: {
         findUnique: jest.fn(),
+        findMany: jest.fn(),
         update: jest.fn(),
         count: jest.fn(),
       },
@@ -138,6 +139,35 @@ describe('AdminService (Governance, Owner Isolation & Sanctions)', () => {
           tokenVersion: { increment: 1 },
         }),
       });
+    });
+  });
+
+  describe('4. User Listing and Governance', () => {
+    it('should list users with applied filters and pagination', async () => {
+      mockPrisma.user.findMany.mockResolvedValue([
+        {
+          id: 'u-1',
+          email: 'worker@earnxpress.demo',
+          primaryRole: UserRole.WORKER,
+          status: UserStatus.ACTIVE,
+          idvStatus: 'VERIFIED',
+          emailVerified: true,
+          createdAt: new Date(),
+          profile: {
+            displayName: 'Rahim Worker',
+            countryCode: 'BD',
+            reputationScore: 4.95,
+            completionRate: 98.0,
+            totalReviewsCount: 15,
+          },
+        },
+      ]);
+      mockPrisma.user.count.mockResolvedValue(1);
+
+      const result = await service.getUsers({ role: UserRole.WORKER, limit: 10, offset: 0 });
+      expect(result.users).toHaveLength(1);
+      expect(result.users[0].displayName).toBe('Rahim Worker');
+      expect(result.meta.totalCount).toBe(1);
     });
   });
 });

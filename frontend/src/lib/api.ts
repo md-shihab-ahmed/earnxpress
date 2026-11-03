@@ -1023,4 +1023,67 @@ export const api = {
 
     return [];
   },
+
+  async getAdminUsers(params?: {
+    role?: string;
+    status?: string;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<{ users: any[]; meta: { totalCount: number } }> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.role) query.append('role', params.role);
+      if (params?.status) query.append('status', params.status);
+      if (params?.search) query.append('search', params.search);
+      if (params?.limit) query.append('limit', String(params.limit));
+      if (params?.offset) query.append('offset', String(params.offset));
+
+      const res = await fetch(`${API_BASE_URL}/admin/users?${query.toString()}`, {
+        headers: getAuthHeaders(),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        return json.data || json;
+      }
+    } catch {
+      // Fallback
+    }
+
+    return { users: [], meta: { totalCount: 0 } };
+  },
+
+  async sanctionUser(userId: string, newStatus: string, reason: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/sanction`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ newStatus, reason }),
+      });
+      if (res.ok) {
+        return { success: true };
+      }
+      const err = await res.json().catch(() => null);
+      return { success: false, message: err?.message || 'Failed to sanction user' };
+    } catch {
+      return { success: false, message: 'Server communication error while sanctioning user' };
+    }
+  },
+
+  async assignUserRole(userId: string, newRole: string, reason: string): Promise<{ success: boolean; message?: string }> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/admin/users/${userId}/role`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ newRole, reason }),
+      });
+      if (res.ok) {
+        return { success: true };
+      }
+      const err = await res.json().catch(() => null);
+      return { success: false, message: err?.message || 'Failed to assign role' };
+    } catch {
+      return { success: false, message: 'Server communication error while assigning role' };
+    }
+  },
 };

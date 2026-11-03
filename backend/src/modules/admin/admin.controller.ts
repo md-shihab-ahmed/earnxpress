@@ -20,7 +20,7 @@ import { PlatformOwnerGuard } from './guards/platform-owner.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { RequireReAuth } from '../../common/decorators/require-reauth.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus } from '@prisma/client';
 
 @ApiTags('Admin & Platform Governance')
 @Controller('admin')
@@ -30,6 +30,26 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly auditService: AuditService,
   ) {}
+
+  @Get('users')
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN, UserRole.MODERATOR)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'List platform users with filtering for staff governance' })
+  async getUsers(
+    @Query('role') role?: UserRole,
+    @Query('status') status?: UserStatus,
+    @Query('search') search?: string,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.adminService.getUsers({
+      role,
+      status,
+      search,
+      limit: Number(limit) || 50,
+      offset: Number(offset) || 0,
+    });
+  }
 
   @Post('users/:id/role')
   @Roles(UserRole.PLATFORM_OWNER)
@@ -48,7 +68,7 @@ export class AdminController {
   }
 
   @Patch('users/:id/sanction')
-  @Roles(UserRole.PLATFORM_OWNER, UserRole.MODERATOR)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN, UserRole.MODERATOR)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Issue sanctions on user account (Restriction, Suspension, Ban)' })
   async sanctionUser(
@@ -62,7 +82,7 @@ export class AdminController {
   }
 
   @Get('audit-logs')
-  @Roles(UserRole.PLATFORM_OWNER, UserRole.MODERATOR, UserRole.SUPPORT_AGENT)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.SUPPORT_AGENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Inspect immutable append-only audit trail' })
   async getAuditLogs(
@@ -80,7 +100,7 @@ export class AdminController {
   }
 
   @Get('dashboard-stats')
-  @Roles(UserRole.PLATFORM_OWNER, UserRole.MODERATOR, UserRole.SUPPORT_AGENT)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN, UserRole.MODERATOR, UserRole.SUPPORT_AGENT)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get global marketplace governance overview metrics' })
   async getDashboardStats() {

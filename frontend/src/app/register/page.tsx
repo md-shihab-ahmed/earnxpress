@@ -5,24 +5,53 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
 import { DemoBadge } from '@/components/shared/DemoBadge';
-import { UserRole } from '@/types';
-import { Lock, Mail, User as UserIcon, Globe, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Lock, Mail, User as UserIcon, Globe, ArrowRight, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login } = useAuth();
-  const [role, setRole] = useState<UserRole>('WORKER');
+  const { registerWithCredentials } = useAuth();
+  const [role, setRole] = useState<'WORKER' | 'BUYER'>('WORKER');
   const [displayName, setDisplayName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [country, setCountry] = useState('BD');
   const [agreed, setAgreed] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    login(email || 'newuser@earnxpress.demo', role);
-    if (role === 'WORKER') router.push('/worker');
-    else router.push('/buyer');
+    if (!agreed) {
+      setErrorMessage('You must agree to the Terms of Service to create an account.');
+      return;
+    }
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    try {
+      const res = await registerWithCredentials({
+        email,
+        pass: password,
+        displayName,
+        countryCode: country,
+        primaryRole: role,
+      });
+
+      if (res.success) {
+        if (role === 'WORKER') {
+          router.push('/worker');
+        } else {
+          router.push('/buyer');
+        }
+        return;
+      }
+
+      setErrorMessage(res.message || 'Registration failed. Please check your details and password strength.');
+    } catch {
+      setErrorMessage('Unable to contact authentication service. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -42,7 +71,14 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        {/* Role Toggle Switch */}
+        {errorMessage && (
+          <div className="flex items-center gap-2 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
+        {/* Role Toggle Switch - STRICTLY WORKER OR BUYER */}
         <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 dark:bg-navy-800 rounded-xl">
           <button
             type="button"
@@ -106,7 +142,7 @@ export default function RegisterPage() {
               <input
                 type="password"
                 required
-                placeholder="At least 8 characters"
+                placeholder="At least 8 chars (uppercase, lowercase, number)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 text-xs pl-9 pr-3 py-2.5 rounded-lg outline-none focus:border-teal-500 text-slate-900 dark:text-white"
@@ -148,9 +184,18 @@ export default function RegisterPage() {
 
           <button
             type="submit"
-            className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-3 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
+            disabled={isLoading}
+            className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white font-bold text-xs py-3 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
           >
-            Create Account & Enter Dashboard <ArrowRight className="w-3.5 h-3.5" />
+            {isLoading ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" /> Creating Account...
+              </>
+            ) : (
+              <>
+                Create Account & Enter Dashboard <ArrowRight className="w-3.5 h-3.5" />
+              </>
+            )}
           </button>
         </form>
 

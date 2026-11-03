@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { AssignRoleDto, SanctionUserDto } from './dto/assign-role.dto';
-import { UserRole } from '@prisma/client';
+import { UserRole, UserStatus, TaskStatus } from '@prisma/client';
 
 @Injectable()
 export class AdminService {
@@ -12,6 +12,81 @@ export class AdminService {
     private readonly prisma: PrismaService,
     private readonly auditService: AuditService,
   ) {}
+
+  /**
+   * List users with role, status, and search filters for administrative governance
+   */
+  async getUsers(params: {
+    role?: UserRole;
+    status?: UserStatus;
+    search?: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const { role, status, search, limit = 50, offset = 0 } = params;
+    const where: any = {};
+
+    if (role) {
+      where.primaryRole = role;
+    }
+    if (status) {
+      where.status = status;
+    }
+    if (search) {
+      where.OR = [
+        { email: { contains: search, mode: 'insensitive' } },
+        { profile: { displayName: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [users, totalCount] = await Promise.all([
+      this.prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          primaryRole: true,
+          status: true,
+          emailVerified: true,
+          createdAt: true,
+          profile: {
+            select: {
+              displayName: true,
+              countryCode: true,
+              reputationScore: true,
+              completionRate: true,
+              totalReviewsCount: true,
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.user.count({ where }),
+    ]);
+
+    return {
+      users: users.map((u) => ({
+        id: u.id,
+        email: u.email,
+        primaryRole: u.primaryRole,
+        status: u.status,
+        emailVerified: u.emailVerified,
+        displayName: u.profile?.displayName || u.email.split('@')[0],
+        countryCode: u.profile?.countryCode || 'N/A',
+        reputationScore: u.profile?.reputationScore ? Number(u.profile.reputationScore) : 5.0,
+        completionRate: u.profile?.completionRate ? Number(u.profile.completionRate) : 100.0,
+        totalReviewsCount: u.profile?.totalReviewsCount || 0,
+        createdAt: u.createdAt,
+      })),
+      meta: {
+        totalCount,
+        limit,
+        offset,
+      },
+    };
+  }
 
   /**
    * Only Platform Owner can assign administrative roles
