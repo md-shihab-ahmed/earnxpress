@@ -2,8 +2,8 @@ import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { ParticipationDashboard } from '@/components/shared/ParticipationDashboard';
+import { TaskQnA } from '@/components/shared/TaskQnA';
 import { ClaimSlotButton } from './claim-slot-button';
 import {
   Users,
@@ -62,7 +62,6 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             <span className="text-xs bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 px-2.5 py-1 rounded-full font-bold">
               STATUS: {task.status}
             </span>
-            <DemoBadge size="md" variant="teal" />
           </div>
 
           <div className="text-xs text-slate-400 flex items-center gap-1 font-mono">
@@ -179,48 +178,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
           </div>
 
           {/* Public In-Platform Q&A Section */}
-          <div className="bg-white dark:bg-navy-900 border border-slate-200 dark:border-navy-800 rounded-xl p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-navy-800 pb-3">
-              <h3 className="font-bold text-slate-900 dark:text-white text-base flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-teal-600" />
-                Public In-Platform Q&A Thread
-              </h3>
-              <span className="text-xs text-slate-400">Prospective Worker Clarifications</span>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-3.5 rounded-lg bg-slate-50 dark:bg-navy-800/60 border border-slate-100 dark:border-navy-700/50 space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-bold text-slate-800 dark:text-slate-200">Worker @Rahim_BD:</span>
-                  <span className="text-[10px] text-slate-400">1 day ago</span>
-                </div>
-                <p className="text-xs text-slate-600 dark:text-slate-300">
-                  "For attributes with color variations (e.g. Navy Blue), should we split into primary color or include shade?"
-                </p>
-                <div className="mt-2 pl-3 border-l-2 border-teal-500 text-xs text-slate-700 dark:text-slate-300 space-y-0.5">
-                  <span className="font-semibold text-teal-600 dark:text-teal-400">Buyer Response:</span>
-                  <p>"Please split into primary color `Blue` and attribute `Navy`. That matches our taxonomy best!"</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Question Input */}
-            <div className="pt-2">
-              <form className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ask a clarifying question before claiming a slot..."
-                  className="flex-1 bg-slate-50 dark:bg-navy-800 border border-slate-200 dark:border-navy-700 text-xs px-3.5 py-2.5 rounded-lg outline-none focus:border-teal-500"
-                />
-                <button
-                  type="button"
-                  className="bg-navy-900 hover:bg-navy-800 dark:bg-teal-600 dark:hover:bg-teal-500 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors"
-                >
-                  Post Question
-                </button>
-              </form>
-            </div>
-          </div>
+          <TaskQnA taskId={task.id} buyerId={task.buyer?.id} />
         </div>
 
         {/* Right Column: Participation Dashboard & Buyer Profile */}
@@ -271,7 +229,7 @@ export default async function TaskDetailPage({ params }: TaskDetailPageProps) {
             <ul className="space-y-2 text-slate-600 dark:text-slate-400">
               <li className="flex items-start gap-2">
                 <span className="text-teal-600 font-bold">•</span>
-                <span><strong>Simulated Escrow Locked:</strong> 100% of the campaign budget is pre-locked in demo escrow before publishing.</span>
+                <span><strong>Guaranteed Escrow:</strong> 100% of the campaign budget is pre-locked in verified escrow before publishing.</span>
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-teal-600 font-bold">•</span>

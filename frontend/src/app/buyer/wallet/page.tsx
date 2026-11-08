@@ -1,8 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
-import { WalletClient } from '@/app/worker/wallet/wallet-client';
+import { BuyerWalletClient } from './buyer-wallet-client';
 import { ArrowLeft, Wallet } from 'lucide-react';
 
 export default async function BuyerWalletPage() {
@@ -24,17 +23,16 @@ export default async function BuyerWalletPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white flex items-center gap-2">
               <Wallet className="w-6 h-6 text-teal-600" />
-              Buyer Demo Wallet
+              Buyer Escrow &amp; Campaign Wallet
             </h1>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-            Fund your multi-worker campaigns using instant simulated test credits.
+            Fund your multi-worker campaigns with guaranteed escrow and real-time ledger accounting.
           </p>
         </div>
       </div>
 
-      <WalletClient
+      <BuyerWalletClient
         initialAvailable={wallet.formattedAvailableUSD}
         initialEscrow={wallet.formattedEscrowUSD}
         initialTransactions={wallet.transactions}

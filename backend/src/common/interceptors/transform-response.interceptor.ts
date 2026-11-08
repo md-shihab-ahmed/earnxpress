@@ -14,15 +14,31 @@ export interface ApiResponse<T> {
   timestamp: string;
 }
 
-function serializeBigInt(obj: any): any {
+function serializeBigInt(obj: any, seen = new WeakSet()): any {
   if (obj === null || obj === undefined) return obj;
   if (typeof obj === 'bigint') return obj.toString();
   if (obj instanceof Date) return obj.toISOString();
-  if (Array.isArray(obj)) return obj.map(serializeBigInt);
   if (typeof obj === 'object') {
+    if (seen.has(obj)) return undefined;
+    seen.add(obj);
+
+    if (Array.isArray(obj)) {
+      return obj.map(item => serializeBigInt(item, seen));
+    }
+
+    // Ignore streams, HTTP sockets or express response instances
+    if (
+      typeof obj.pipe === 'function' ||
+      obj.constructor?.name === 'ServerResponse' ||
+      obj.constructor?.name === 'Socket' ||
+      obj.constructor?.name === 'IncomingMessage'
+    ) {
+      return undefined;
+    }
+
     const res: Record<string, any> = {};
     for (const key of Object.keys(obj)) {
-      res[key] = serializeBigInt(obj[key]);
+      res[key] = serializeBigInt(obj[key], seen);
     }
     return res;
   }

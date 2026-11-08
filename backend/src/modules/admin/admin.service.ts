@@ -95,6 +95,14 @@ export class AdminService {
     const targetUser = await this.prisma.user.findUnique({ where: { id: targetUserId } });
     if (!targetUser) throw new NotFoundException('Target user not found');
 
+    if (actorId === targetUserId) {
+      throw new BadRequestException('Cannot modify your own administrative role');
+    }
+
+    if (dto.newRole === UserRole.PLATFORM_OWNER) {
+      throw new BadRequestException('Platform Owner role cannot be assigned via API; single root owner required');
+    }
+
     if (targetUser.primaryRole === UserRole.PLATFORM_OWNER) {
       throw new BadRequestException('Platform Owner role cannot be demoted or altered through API');
     }

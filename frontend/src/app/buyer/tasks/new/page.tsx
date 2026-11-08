@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { TaskCreationWizard } from './wizard-client';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { ArrowLeft, PlusCircle } from 'lucide-react';
 
 export default function NewTaskPage() {
@@ -23,7 +22,6 @@ export default function NewTaskPage() {
               <PlusCircle className="w-6 h-6 text-teal-600" />
               Five-Step Task Creation Wizard
             </h1>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Publish high-capacity multi-worker campaigns with transparent escrow locks.

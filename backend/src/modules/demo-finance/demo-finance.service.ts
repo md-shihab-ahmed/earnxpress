@@ -281,6 +281,19 @@ export class DemoFinanceService {
     const buyerEscrow = await this.getOrCreateUserAccount(buyerId, DemoAccountType.DEMO_BUYER_ESCROW_RESERVED, client);
     const workerAvailable = await this.getOrCreateUserAccount(workerId, DemoAccountType.DEMO_WORKER_AVAILABLE, client);
 
+    if (client.demoLedgerTransaction && typeof client.demoLedgerTransaction.findFirst === 'function') {
+      const existingPayout = await client.demoLedgerTransaction.findFirst({
+        where: {
+          referenceType: 'DEMO_TASK_SLOT_PAYOUT',
+          referenceId: participationId,
+        },
+      });
+
+      if (existingPayout) {
+        throw new BadRequestException('Slot payout has already been disbursed for this participation slot.');
+      }
+    }
+
     if (buyerEscrow.balanceCents < fees.totalSlotEscrowCents) {
       throw new BadRequestException('Insufficient reserved escrow to disburse slot payout');
     }
@@ -386,6 +399,178 @@ export class DemoFinanceService {
       transactionId: transaction.id,
       refundedCents: refundAmountCents,
     };
+  }
+
+  /**
+   * Settle a dispute with split arbitration verdict
+   * Invariant: workerGrossPayoutCents + buyerRefundCents === unitBudgetCents
+   * Escrow debited === Worker Net Credited + Buyer Refund Credited + Platform Revenue Credited
+   */
+  async settleDisputeSplit(
+    buyerId: string,
+    workerId: string,
+    taskId: string,
+    participationId: string,
+    unitBudgetCents: bigint,
+    workerGrossPayoutCents: bigint,
+    buyerRefundCents: bigint,
+    tx?: any,
+  ) {
+    if (workerGrossPayoutCents + buyerRefundCents !== unitBudgetCents) {
+      throw new BadRequestException(
+        `Dispute split invariant violation: worker (${workerGrossPayoutCents}) + buyer (${buyerRefundCents}) must equal unit budget (${unitBudgetCents})`,
+      );
+    }
+
+    const client = tx || this.prisma;
+    const { revenueAccount } = await this.ensureSystemAccounts(client);
+    const fees = this.calculateFees(unitBudgetCents);
+
+    // Prorated buyer fee refund
+    const buyerFeeRefundCents = (buyerRefundCents * 200n + 5000n) / 10000n;
+    const buyerFeePlatformCents = fees.buyerFeeCents - buyerFeeRefundCents;
+
+    // Prorated worker fee
+    const workerFeeCents = (workerGrossPayoutCents * 400n + 5000n) / 10000n;
+    const workerNetPayoutCents = workerGrossPayoutCents > workerFeeCents ? workerGrossPayoutCents - workerFeeCents : 0n;
+
+    const totalBuyerRefundCents = buyerRefundCents + buyerFeeRefundCents;
+    const totalPlatformTakeCents = fees.totalSlotEscrowCents - totalBuyerRefundCents - workerNetPayoutCents;
+
+    const buyerEscrow = await this.getOrCreateUserAccount(buyerId, DemoAccountType.DEMO_BUYER_ESCROW_RESERVED, client);
+    const buyerAvailable = await this.getOrCreateUserAccount(buyerId, DemoAccountType.DEMO_BUYER_AVAILABLE, client);
+    const workerAvailable = await this.getOrCreateUserAccount(workerId, DemoAccountType.DEMO_WORKER_AVAILABLE, client);
+
+    if (client.demoLedgerTransaction && typeof client.demoLedgerTransaction.findFirst === 'function') {
+      const existingSettlement = await client.demoLedgerTransaction.findFirst({
+        where: {
+          referenceType: 'DEMO_DISPUTE_ARBITRATION_SPLIT',
+          referenceId: participationId,
+        },
+      });
+
+      if (existingSettlement) {
+        throw new BadRequestException('A dispute settlement transaction has already been recorded for this participation slot.');
+      }
+    }
+
+    if (buyerEscrow.balanceCents < fees.totalSlotEscrowCents) {
+      throw new BadRequestException('Insufficient reserved escrow to settle dispute');
+    }
+
+    const transaction = await client.demoLedgerTransaction.create({
+      data: {
+        referenceType: 'DEMO_DISPUTE_ARBITRATION_SPLIT',
+        referenceId: participationId,
+        description: `Dispute split resolution: Worker received $${(Number(workerNetPayoutCents) / 100).toFixed(2)}, Buyer refunded $${(Number(totalBuyerRefundCents) / 100).toFixed(2)}, Platform took $${(Number(totalPlatformTakeCents) / 100).toFixed(2)}`,
+      },
+    });
+
+    // 1. Escrow -> Worker Available (if > 0)
+    if (workerNetPayoutCents > 0n) {
+      await client.demoLedgerEntry.create({
+        data: {
+          transactionId: transaction.id,
+          debitAccountId: buyerEscrow.id,
+          creditAccountId: workerAvailable.id,
+          amountCents: workerNetPayoutCents,
+        },
+      });
+      await client.demoLedgerAccount.update({
+        where: { id: workerAvailable.id },
+        data: { balanceCents: { increment: workerNetPayoutCents } },
+      });
+    }
+
+    // 2. Escrow -> Buyer Available (if > 0)
+    if (totalBuyerRefundCents > 0n) {
+      await client.demoLedgerEntry.create({
+        data: {
+          transactionId: transaction.id,
+          debitAccountId: buyerEscrow.id,
+          creditAccountId: buyerAvailable.id,
+          amountCents: totalBuyerRefundCents,
+        },
+      });
+      await client.demoLedgerAccount.update({
+        where: { id: buyerAvailable.id },
+        data: { balanceCents: { increment: totalBuyerRefundCents } },
+      });
+    }
+
+    // 3. Escrow -> Platform Revenue (if > 0)
+    if (totalPlatformTakeCents > 0n) {
+      await client.demoLedgerEntry.create({
+        data: {
+          transactionId: transaction.id,
+          debitAccountId: buyerEscrow.id,
+          creditAccountId: revenueAccount.id,
+          amountCents: totalPlatformTakeCents,
+        },
+      });
+      await client.demoLedgerAccount.update({
+        where: { id: revenueAccount.id },
+        data: { balanceCents: { increment: totalPlatformTakeCents } },
+      });
+    }
+
+    // Debit Escrow by total slot escrow
+    await client.demoLedgerAccount.update({
+      where: { id: buyerEscrow.id },
+      data: { balanceCents: { decrement: fees.totalSlotEscrowCents } },
+    });
+
+    return {
+      transactionId: transaction.id,
+      workerNetPayoutCents,
+      totalBuyerRefundCents,
+      totalPlatformTakeCents,
+    };
+  }
+
+  /**
+   * Refund full slot escrow to buyer following dispute resolution
+   */
+  async refundDisputeToBuyer(
+    buyerId: string,
+    taskId: string,
+    participationId: string,
+    unitBudgetCents: bigint,
+    tx?: any,
+  ) {
+    return this.settleDisputeSplit(
+      buyerId,
+      buyerId, // workerId dummy not credited
+      taskId,
+      participationId,
+      unitBudgetCents,
+      0n,
+      unitBudgetCents,
+      tx,
+    );
+  }
+
+  /**
+   * Payout full slot escrow to worker following dispute resolution
+   */
+  async payoutDisputeToWorker(
+    buyerId: string,
+    workerId: string,
+    taskId: string,
+    participationId: string,
+    unitBudgetCents: bigint,
+    tx?: any,
+  ) {
+    return this.settleDisputeSplit(
+      buyerId,
+      workerId,
+      taskId,
+      participationId,
+      unitBudgetCents,
+      unitBudgetCents,
+      0n,
+      tx,
+    );
   }
 
   /**

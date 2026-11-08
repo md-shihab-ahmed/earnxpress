@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import {
   PlusCircle,
   Users,
@@ -31,7 +30,6 @@ export default async function BuyerDashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
               Buyer Campaign Control Center
             </h1>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Author multi-worker campaigns, monitor participation metrics, and evaluate worker submissions.
@@ -98,7 +96,7 @@ export default async function BuyerDashboardPage() {
           <div className="text-2xl font-extrabold text-slate-900 dark:text-white font-mono">
             {wallet.formattedEscrowUSD}
           </div>
-          <div className="text-[11px] text-slate-400">Locked in demo ledger</div>
+          <div className="text-[11px] text-slate-400">Guaranteed in Escrow</div>
         </div>
       </div>
 

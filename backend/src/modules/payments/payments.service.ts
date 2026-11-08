@@ -24,6 +24,8 @@ import {
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { ProcessWithdrawalDto } from './dto/process-withdrawal.dto';
+import { CreateManualDepositDto } from './dto/create-manual-deposit.dto';
+import { ProcessDepositDto } from './dto/process-deposit.dto';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -637,6 +639,103 @@ export class PaymentsService {
   }
 
   /**
+   * List all withdrawal requests for Platform Owner and Admin review
+   */
+  async listWithdrawals(query: { status?: WithdrawalStatus; limit?: number; offset?: number }) {
+    const where: any = {};
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    const take = Math.min(Math.max(query.limit ? Number(query.limit) : 20, 1), 100);
+    const skip = Math.max(query.offset ? Number(query.offset) : 0, 0);
+
+    const [total, records] = await Promise.all([
+      this.prisma.withdrawalRequest.count({ where }),
+      this.prisma.withdrawalRequest.findMany({
+        where,
+        take,
+        skip,
+        orderBy: { requestedAt: 'desc' },
+        include: {
+          worker: {
+            select: {
+              id: true,
+              email: true,
+              primaryRole: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatarUrl: true,
+                  countryCode: true,
+                },
+              },
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      limit: take,
+      offset: skip,
+      items: (records as any[]).map((r) => ({
+        id: r.id,
+        workerId: r.workerId,
+        worker: {
+          id: r.worker?.id || r.workerId,
+          email: r.worker?.email || 'worker@earnxpress.com',
+          country: r.worker?.profile?.countryCode || 'BD',
+          displayName: r.worker?.profile?.displayName || 'EarnXpress Worker',
+          avatarUrl: r.worker?.profile?.avatarUrl || null,
+        },
+        method: r.method,
+        destinationDetailsMasked: r.destinationDetailsMasked,
+        amountCents: r.amountCents.toString(),
+        formattedUSD: `$${(Number(r.amountCents) / 100).toFixed(2)} USD`,
+        payoutCurrency: r.payoutCurrency,
+        estimatedPayoutMinor: r.estimatedPayoutAmountMinor?.toString(),
+        exchangeRate: r.exchangeRate ? Number(r.exchangeRate) : null,
+        status: r.status,
+        providerPayoutId: r.providerPayoutId,
+        rejectionReason: r.rejectionReason,
+        requestedAt: r.requestedAt,
+        processedAt: r.processedAt,
+        completedAt: r.completedAt,
+      })),
+    };
+  }
+
+  /**
+   * Worker retrieves their personal withdrawal requests history
+   */
+  async getMyWithdrawals(workerId: string) {
+    const records = await this.prisma.withdrawalRequest.findMany({
+      where: { workerId },
+      orderBy: { requestedAt: 'desc' },
+      take: 50,
+    });
+
+    return records.map((r) => ({
+      id: r.id,
+      method: r.method,
+      destinationDetailsMasked: r.destinationDetailsMasked,
+      amountCents: r.amountCents.toString(),
+      formattedUSD: `$${(Number(r.amountCents) / 100).toFixed(2)} USD`,
+      payoutCurrency: r.payoutCurrency,
+      estimatedPayoutMinor: r.estimatedPayoutAmountMinor?.toString(),
+      exchangeRate: r.exchangeRate ? Number(r.exchangeRate) : null,
+      status: r.status,
+      providerPayoutId: r.providerPayoutId,
+      rejectionReason: r.rejectionReason,
+      requestedAt: r.requestedAt,
+      processedAt: r.processedAt,
+      completedAt: r.completedAt,
+    }));
+  }
+
+  /**
    * Refund remaining unfilled slots on real-funded task
    */
   async refundTaskUnfilledSlots(buyerId: string, taskId: string) {
@@ -727,5 +826,268 @@ export class PaymentsService {
         effectiveAt: new Date().toISOString(),
       },
     ];
+  }
+
+  /**
+   * Buyer submits a manual deposit record (Binance Pay / USDT / bKash / Bank Transfer)
+   */
+  async createManualDeposit(buyerId: string, dto: CreateManualDepositDto) {
+    const buyer = await this.prisma.user.findUnique({
+      where: { id: buyerId },
+      include: { profile: true },
+    });
+    if (!buyer) throw new NotFoundException('Buyer account not found');
+
+    const cleanTxRef = dto.transactionReference.trim();
+    if (!cleanTxRef) {
+      throw new BadRequestException('Transaction reference (TxID) is required');
+    }
+
+    // Anti-fraud duplicate check on transaction reference
+    const duplicate = await this.prisma.paymentOrder.findFirst({
+      where: { providerOrderId: cleanTxRef },
+    });
+    if (duplicate) {
+      throw new ConflictException(
+        'A deposit with this Transaction ID has already been recorded in the platform ledger',
+      );
+    }
+
+    const orderId = crypto.randomUUID();
+    const amountCents = BigInt(dto.amountCents);
+
+    const order = await this.prisma.paymentOrder.create({
+      data: {
+        id: orderId,
+        buyerId,
+        provider: PaymentProviderType.SANDBOX_MOCK, // Internal verified manual flow
+        providerOrderId: cleanTxRef,
+        amountCents,
+        currency: 'USD',
+        status: PaymentOrderStatus.PENDING,
+        idempotencyKey: `dep_man_${orderId}`,
+        metadata: {
+          isManualDeposit: true,
+          depositMethod: dto.depositMethod,
+          senderIdentifier: dto.senderIdentifier,
+          transactionReference: cleanTxRef,
+          proofScreenshotUrl: dto.proofScreenshotUrl || null,
+          notes: dto.notes || null,
+          submittedAt: new Date().toISOString(),
+        },
+      },
+    });
+
+    return {
+      orderId: order.id,
+      amountCents: order.amountCents.toString(),
+      formattedUSD: `$${(Number(order.amountCents) / 100).toFixed(2)} USD`,
+      status: order.status,
+      depositMethod: dto.depositMethod,
+      senderIdentifier: dto.senderIdentifier,
+      transactionReference: cleanTxRef,
+      createdAt: order.createdAt,
+    };
+  }
+
+  /**
+   * Buyer inspects their manual deposit history
+   */
+  async getMyDeposits(buyerId: string) {
+    const orders = await this.prisma.paymentOrder.findMany({
+      where: {
+        buyerId,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+
+    return orders.map((o) => {
+      const meta = (o.metadata && typeof o.metadata === 'object' ? o.metadata : {}) as any;
+      return {
+        id: o.id,
+        amountCents: o.amountCents.toString(),
+        formattedUSD: `$${(Number(o.amountCents) / 100).toFixed(2)} USD`,
+        currency: o.currency,
+        status: o.status,
+        provider: o.provider,
+        transactionReference: o.providerOrderId || meta.transactionReference || 'N/A',
+        depositMethod: meta.depositMethod || 'BINANCE_PAY',
+        senderIdentifier: meta.senderIdentifier || 'N/A',
+        proofScreenshotUrl: meta.proofScreenshotUrl || null,
+        failureReason: o.failureReason,
+        createdAt: o.createdAt,
+        confirmedAt: o.confirmedAt,
+      };
+    });
+  }
+
+  /**
+   * Platform Owner / Admin lists all deposits with optional status filter
+   */
+  async listDeposits(options?: {
+    status?: PaymentOrderStatus;
+    limit?: number;
+    offset?: number;
+  }) {
+    const where: any = {};
+    if (options?.status) {
+      where.status = options.status;
+    }
+
+    const [total, items] = await Promise.all([
+      this.prisma.paymentOrder.count({ where }),
+      this.prisma.paymentOrder.findMany({
+        where,
+        include: {
+          buyer: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  countryCode: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: options?.limit || 50,
+        skip: options?.offset || 0,
+      }),
+    ]);
+
+    return {
+      total,
+      items: items.map((o) => {
+        const meta = (o.metadata && typeof o.metadata === 'object' ? o.metadata : {}) as any;
+        return {
+          id: o.id,
+          buyerId: o.buyerId,
+          buyerEmail: o.buyer.email,
+          buyerName: o.buyer.profile?.displayName || o.buyer.email,
+          amountCents: o.amountCents.toString(),
+          formattedUSD: `$${(Number(o.amountCents) / 100).toFixed(2)} USD`,
+          status: o.status,
+          transactionReference: o.providerOrderId || meta.transactionReference || 'N/A',
+          depositMethod: meta.depositMethod || 'BINANCE_PAY',
+          senderIdentifier: meta.senderIdentifier || 'N/A',
+          proofScreenshotUrl: meta.proofScreenshotUrl || null,
+          notes: meta.notes || null,
+          adminNotes: meta.adminNotes || null,
+          failureReason: o.failureReason,
+          createdAt: o.createdAt,
+          confirmedAt: o.confirmedAt,
+        };
+      }),
+    };
+  }
+
+  /**
+   * Admin / Platform Owner processes a manual deposit (APPROVE with double-entry ledger execution or REJECT)
+   */
+  async processDeposit(adminId: string, orderId: string, dto: ProcessDepositDto) {
+    const order = await this.prisma.paymentOrder.findUnique({
+      where: { id: orderId },
+      include: { buyer: { select: { email: true, profile: true } } },
+    });
+    if (!order) throw new NotFoundException('Deposit order not found');
+
+    if (order.status !== PaymentOrderStatus.PENDING) {
+      throw new BadRequestException(`Order cannot be processed: Current status is ${order.status}`);
+    }
+
+    const meta = (order.metadata && typeof order.metadata === 'object' ? order.metadata : {}) as any;
+
+    if (dto.decision === 'APPROVE') {
+      await this.prisma.$transaction(async (tx) => {
+        // A. Mark order as SUCCEEDED
+        await tx.paymentOrder.update({
+          where: { id: order.id },
+          data: {
+            status: PaymentOrderStatus.SUCCEEDED,
+            confirmedAt: new Date(),
+            metadata: {
+              ...meta,
+              reviewedByAdminId: adminId,
+              adminNotes: dto.adminNotes || 'Approved by Platform Governance',
+              decision: 'APPROVE',
+              processedAt: new Date().toISOString(),
+            },
+          },
+        });
+
+        // B. Double-Entry: System Clearing -> Buyer Real Available
+        await this.realLedgerService.recordDoubleEntryTransaction(tx, {
+          referenceType: 'BUYER_REAL_DEPOSIT',
+          referenceId: order.id,
+          idempotencyKey: `dep_manual_${order.id}`,
+          description: `Manual deposit verified (${meta.depositMethod || 'BINANCE_PAY'} - TxID: ${order.providerOrderId})`,
+          debitAccount: {
+            accountType: RealAccountType.SYSTEM_PAYMENT_CLEARING,
+            currency: order.currency,
+          },
+          creditAccount: {
+            userId: order.buyerId,
+            accountType: RealAccountType.BUYER_REAL_AVAILABLE,
+            currency: order.currency,
+          },
+          amountCents: order.amountCents,
+        });
+
+        // C. Emit In-App Notification
+        await tx.notification.create({
+          data: {
+            userId: order.buyerId,
+            type: 'DEPOSIT_APPROVED',
+            title: 'Deposit Approved & Balance Credited!',
+            body: `Your deposit of $${(Number(order.amountCents) / 100).toFixed(2)} USD via ${meta.depositMethod || 'Direct Payment'} (TxID: ${order.providerOrderId}) has been approved and credited to your wallet balance.`,
+            actionUrl: '/buyer/wallet',
+          },
+        });
+      });
+
+      return {
+        success: true,
+        orderId: order.id,
+        status: PaymentOrderStatus.SUCCEEDED,
+        message: 'Deposit approved and funds credited to Buyer Available wallet balance',
+      };
+    } else {
+      // REJECT
+      await this.prisma.paymentOrder.update({
+        where: { id: order.id },
+        data: {
+          status: PaymentOrderStatus.FAILED,
+          failureReason: dto.rejectionReason || 'Deposit transaction could not be verified',
+          metadata: {
+            ...meta,
+            reviewedByAdminId: adminId,
+            rejectionReason: dto.rejectionReason,
+            decision: 'REJECT',
+            processedAt: new Date().toISOString(),
+          },
+        },
+      });
+
+      await this.prisma.notification.create({
+        data: {
+          userId: order.buyerId,
+          type: 'DEPOSIT_REJECTED',
+          title: 'Deposit Request Declined',
+          body: `Your deposit request of $${(Number(order.amountCents) / 100).toFixed(2)} USD was declined. Reason: ${dto.rejectionReason || 'Invalid Transaction ID / Unconfirmed payment'}.`,
+          actionUrl: '/buyer/wallet',
+        },
+      });
+
+      return {
+        success: true,
+        orderId: order.id,
+        status: PaymentOrderStatus.FAILED,
+        message: 'Deposit request has been rejected',
+      };
+    }
   }
 }

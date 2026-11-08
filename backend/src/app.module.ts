@@ -11,6 +11,11 @@ import { DemoFinanceModule } from './modules/demo-finance/demo-finance.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { AdminModule } from './modules/admin/admin.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { EvidenceModule } from './modules/evidence/evidence.module';
+import { DisputesModule } from './modules/disputes/disputes.module';
+import { ConversationsModule } from './modules/conversations/conversations.module';
+import { IdvModule } from './modules/idv/idv.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -36,6 +41,11 @@ import { PaymentsModule } from './modules/payments/payments.module';
     TasksModule,
     AdminModule,
     PaymentsModule,
+    EvidenceModule,
+    DisputesModule,
+    ConversationsModule,
+    IdvModule,
+    NotificationsModule,
   ],
   providers: [
     {

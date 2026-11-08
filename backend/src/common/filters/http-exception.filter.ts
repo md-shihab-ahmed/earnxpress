@@ -30,7 +30,7 @@ export class GlobalHttpExceptionFilter implements ExceptionFilter {
       } else if (typeof res === 'object' && res !== null) {
         const resObj = res as Record<string, any>;
         message = resObj.message || message;
-        errorCode = resObj.error || `ERR_HTTP_${status}`;
+        errorCode = resObj.code || resObj.error || `ERR_HTTP_${status}`;
         if (Array.isArray(resObj.message)) {
           details = resObj.message;
           message = 'Validation error occurred.';

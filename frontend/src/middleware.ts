@@ -22,7 +22,7 @@ export function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/buyer', request.url));
     }
     if (isAdminRole) {
-      return NextResponse.redirect(new URL('/admin', request.url));
+      return NextResponse.redirect(new URL('/shihab-vault-7860', request.url));
     }
     return NextResponse.redirect(new URL('/tasks', request.url));
   }
@@ -53,24 +53,9 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // 4. Protect Admin Portal (/admin/*)
-  if (pathname.startsWith('/admin')) {
-    if (!isAuth) {
-      const loginUrl = new URL('/login', request.url);
-      loginUrl.searchParams.set('redirect', pathname);
-      return NextResponse.redirect(loginUrl);
-    }
-    // Regular Workers and Buyers are strictly forbidden from Admin Portal
-    if (!isAdminRole) {
-      if (role === 'WORKER') {
-        return NextResponse.redirect(new URL('/worker', request.url));
-      }
-      if (role === 'BUYER') {
-        return NextResponse.redirect(new URL('/buyer', request.url));
-      }
-      return NextResponse.redirect(new URL('/tasks', request.url));
-    }
-  }
+  // 4. Admin Portal (/admin/*)
+  // Allowed to load so Platform Owner can authenticate via the Master Security Clearance Terminal.
+  // Full governance actions and sensitive data are guarded client-side and in API routes.
 
   return NextResponse.next();
 }
@@ -79,7 +64,6 @@ export const config = {
   matcher: [
     '/worker/:path*',
     '/buyer/:path*',
-    '/admin/:path*',
     '/login',
     '/register',
   ],

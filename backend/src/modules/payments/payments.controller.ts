@@ -17,11 +17,14 @@ import { RealLedgerService } from './real-ledger.service';
 import { CreatePaymentOrderDto } from './dto/create-payment-order.dto';
 import { CreateWithdrawalDto } from './dto/create-withdrawal.dto';
 import { ProcessWithdrawalDto } from './dto/process-withdrawal.dto';
+import { CreateManualDepositDto } from './dto/create-manual-deposit.dto';
+import { ProcessDepositDto } from './dto/process-deposit.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { VerifiedUserGuard } from '../auth/guards/verified-user.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { UserRole, PaymentProviderType } from '@prisma/client';
+import { UserRole, PaymentProviderType, WithdrawalStatus, PaymentOrderStatus } from '@prisma/client';
 import { Request } from 'express';
 
 @ApiTags('Real International Payments & Settlement')
@@ -33,7 +36,7 @@ export class PaymentsController {
   ) {}
 
   @Post('checkout-session')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
   @Roles(UserRole.BUYER, UserRole.PLATFORM_OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Create real payment order session (Deposit or Direct Task Escrow Funding)' })
@@ -80,7 +83,7 @@ export class PaymentsController {
   }
 
   @Post('withdrawals')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
   @Roles(UserRole.WORKER, UserRole.PLATFORM_OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Worker requests withdrawal payout to verified bank, MFS or remittance channel' })
@@ -89,6 +92,28 @@ export class PaymentsController {
     @Body() dto: CreateWithdrawalDto,
   ) {
     return this.paymentsService.requestWithdrawal(workerId, dto);
+  }
+
+  @Get('withdrawals/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.WORKER, UserRole.PLATFORM_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Worker views personal withdrawal payout requests history' })
+  async getMyWithdrawals(@CurrentUser('id') workerId: string) {
+    return this.paymentsService.getMyWithdrawals(workerId);
+  }
+
+  @Get('withdrawals')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Platform Owner / Admin lists all worker withdrawal requests' })
+  async listWithdrawals(
+    @Query('status') status?: WithdrawalStatus,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.paymentsService.listWithdrawals({ status, limit, offset });
   }
 
   @Post('withdrawals/:id/process')
@@ -131,5 +156,53 @@ export class PaymentsController {
   @ApiOperation({ summary: 'Comprehensive Double-Entry Ledger Mathematical Reconciliation Audit' })
   async reconcileLedger() {
     return this.realLedgerService.reconcileRealLedger();
+  }
+
+  @Post('deposits/manual')
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
+  @Roles(UserRole.BUYER, UserRole.PLATFORM_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Buyer submits manual deposit receipt (Binance Pay / USDT / bKash / Bank)' })
+  async submitManualDeposit(
+    @CurrentUser('id') buyerId: string,
+    @Body() dto: CreateManualDepositDto,
+  ) {
+    return this.paymentsService.createManualDeposit(buyerId, dto);
+  }
+
+  @Get('deposits/my')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUYER, UserRole.PLATFORM_OWNER)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Buyer views personal deposit history' })
+  async getMyDeposits(@CurrentUser('id') buyerId: string) {
+    return this.paymentsService.getMyDeposits(buyerId);
+  }
+
+  @Get('deposits')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Platform Owner / Admin lists all deposits' })
+  async listDeposits(
+    @Query('status') status?: PaymentOrderStatus,
+    @Query('limit') limit?: number,
+    @Query('offset') offset?: number,
+  ) {
+    return this.paymentsService.listDeposits({ status, limit: Number(limit) || 50, offset: Number(offset) || 0 });
+  }
+
+  @Post('deposits/:id/process')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.PLATFORM_OWNER, UserRole.SUPER_ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Admin/Staff review and process manual deposit (APPROVE, REJECT)' })
+  async processDeposit(
+    @CurrentUser('id') adminId: string,
+    @Param('id') orderId: string,
+    @Body() dto: ProcessDepositDto,
+  ) {
+    return this.paymentsService.processDeposit(adminId, orderId, dto);
   }
 }

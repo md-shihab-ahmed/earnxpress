@@ -16,6 +16,7 @@ import { SubmitTaskDto } from './dto/submit-task.dto';
 import { ReviewSubmissionDto } from './dto/review-submission.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
+import { VerifiedUserGuard } from '../auth/guards/verified-user.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { UserRole } from '@prisma/client';
@@ -71,7 +72,7 @@ export class TasksController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
   @Roles(UserRole.BUYER, UserRole.PLATFORM_OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Publish a new multi-worker task campaign with atomic demo escrow lock' })
@@ -85,7 +86,7 @@ export class TasksController {
   }
 
   @Post(':id/accept-slot')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
   @Roles(UserRole.WORKER, UserRole.PLATFORM_OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Worker atomically claims an available slot on an open marketplace task' })
@@ -135,7 +136,7 @@ export class TasksController {
   }
 
   @Post('participations/:id/submit')
-  @UseGuards(JwtAuthGuard, RolesGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard, VerifiedUserGuard)
   @Roles(UserRole.WORKER, UserRole.PLATFORM_OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Worker submits deliverables for review on their claimed slot' })
@@ -174,5 +175,17 @@ export class TasksController {
     @Body('isCompleted') isCompleted: boolean,
   ) {
     return this.tasksService.updateMilestoneProgress(workerId, participationId, milestoneId, isCompleted);
+  }
+
+  @Post('participations/:id/escalate-overdue')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Escalate submission to REVIEW_OVERDUE if 72h review SLA has expired' })
+  async escalateOverdueReview(
+    @CurrentUser('id') userId: string,
+    @Param('id') participationId: string,
+    @Ip() ipAddress: string,
+  ) {
+    return this.tasksService.escalateOverdueReview(userId, participationId, ipAddress);
   }
 }

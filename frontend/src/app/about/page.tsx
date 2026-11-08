@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { Users, Globe2, ShieldCheck, Zap, ArrowRight } from 'lucide-react';
 
 export default function AboutPage() {
@@ -8,7 +7,6 @@ export default function AboutPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-1.5">
-          <DemoBadge size="sm" variant="teal" />
           <span className="text-xs uppercase font-bold tracking-wider text-teal-600 font-mono">
             Platform Mission
           </span>

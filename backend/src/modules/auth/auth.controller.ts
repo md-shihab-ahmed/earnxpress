@@ -16,6 +16,8 @@ import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ReAuthDto, VerifyMfaDto } from './dto/re-auth.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-recovery.dto';
+import { VerifyEmailDto, ResendVerificationDto } from './dto/verify-email.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 
@@ -25,7 +27,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @ApiOperation({ summary: 'Register a new Buyer or Worker account' })
+  @ApiOperation({ summary: 'Register a new Buyer or Worker account with email verification' })
   @ApiResponse({ status: 201, description: 'Account created successfully' })
   async register(
     @Body() dto: RegisterDto,
@@ -38,6 +40,7 @@ export class AuthController {
     return {
       user: result.user,
       accessToken: result.accessToken,
+      emailDelivery: result.emailDelivery,
     };
   }
 
@@ -63,6 +66,43 @@ export class AuthController {
     };
   }
 
+  @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify account email using token received via email' })
+  async verifyEmail(
+    @Body() dto: VerifyEmailDto,
+    @Ip() ipAddress: string,
+  ) {
+    return this.authService.verifyEmail(dto, ipAddress);
+  }
+
+  @Post('resend-verification')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Resend email verification token (subject to 60s cooldown)' })
+  async resendVerification(@Body() dto: ResendVerificationDto) {
+    return this.authService.resendVerification(dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request password reset instructions via email' })
+  async forgotPassword(
+    @Body() dto: ForgotPasswordDto,
+    @Ip() ipAddress: string,
+  ) {
+    return this.authService.forgotPassword(dto, ipAddress);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset password using token received via email' })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+    @Ip() ipAddress: string,
+  ) {
+    return this.authService.resetPassword(dto, ipAddress);
+  }
+
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Rotate refresh token and issue new access token' })
@@ -86,7 +126,9 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     await this.authService.logout(userId);
-    res.clearCookie('earnxpress_refresh_token');
+    res.clearCookie('earnxpress_refresh_token', {
+      path: '/api/v1/auth',
+    });
     return { success: true, message: 'Logged out successfully' };
   }
 

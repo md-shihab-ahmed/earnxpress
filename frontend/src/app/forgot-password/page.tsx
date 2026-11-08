@@ -2,16 +2,33 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
-import { Mail, ArrowLeft, CheckCircle2 } from 'lucide-react';
-import { DemoBadge } from '@/components/shared/DemoBadge';
+import { useAuth } from '@/lib/auth-context';
+import { Mail, ArrowLeft, CheckCircle2, Loader2, AlertCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
+  const { forgotPassword } = useAuth();
   const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (!email.trim()) return;
+
+    setErrorMessage(null);
+    setIsLoading(true);
+
+    try {
+      const res = await forgotPassword(email.trim());
+      setSubmitted(true);
+      setStatusMessage(res.message);
+    } catch {
+      setErrorMessage('Unable to process password reset request. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -26,28 +43,35 @@ export default function ForgotPasswordPage() {
           </Link>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Reset Password</h2>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs text-slate-500 mt-1">
             Enter your account email to receive a password reset verification link.
           </p>
         </div>
 
+        {errorMessage && (
+          <div className="flex items-start gap-2 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-xl text-red-600 dark:text-red-400 text-xs">
+            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
+
         {submitted ? (
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-5 rounded-xl space-y-2 text-center">
-            <CheckCircle2 className="w-8 h-8 text-emerald-600 mx-auto" />
-            <h3 className="text-sm font-bold text-emerald-900 dark:text-emerald-200">
-              Reset Link Dispatched
+          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-6 rounded-xl space-y-3 text-center">
+            <CheckCircle2 className="w-9 h-9 text-emerald-600 mx-auto" />
+            <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-200">
+              Check Your Inbox
             </h3>
-            <p className="text-xs text-emerald-700 dark:text-emerald-400">
-              We dispatched a simulated reset token to <strong>{email}</strong>. In the demo sandbox, you can immediately log in with default credentials.
+            <p className="text-xs text-emerald-700 dark:text-emerald-400 leading-relaxed">
+              {statusMessage ||
+                `If an account with ${email} exists, password reset instructions have been dispatched.`}
             </p>
             <div className="pt-2">
               <Link
                 href="/login"
-                className="inline-block bg-teal-600 text-white font-bold text-xs px-4 py-2 rounded-lg"
+                className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-4 py-2.5 rounded-lg transition-colors shadow-sm"
               >
-                Return to Login
+                Return to Sign In
               </Link>
             </div>
           </div>
@@ -72,9 +96,16 @@ export default function ForgotPasswordPage() {
 
             <button
               type="submit"
-              className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs py-3 rounded-lg shadow-sm transition-colors"
+              disabled={isLoading}
+              className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white font-bold text-xs py-3 rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
             >
-              Send Password Reset Link
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Dispatching...
+                </>
+              ) : (
+                'Send Password Reset Instructions'
+              )}
             </button>
           </form>
         )}

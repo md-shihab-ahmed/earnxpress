@@ -2,7 +2,6 @@ import React from 'react';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { WorkspaceClient } from './workspace-client';
 import {
   ArrowLeft,
@@ -93,7 +92,6 @@ export default async function WorkerTaskWorkspacePage({ params }: WorkerTaskWork
             <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 dark:bg-navy-800 dark:text-slate-300">
               STATUS: {participation.status}
             </span>
-            <DemoBadge size="sm" variant="teal" />
           </div>
 
           <div className="text-xs text-slate-500 flex items-center gap-1 font-mono">

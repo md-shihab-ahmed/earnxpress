@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import { WorkerParticipation } from '@/types';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
+import { useAuth } from '@/lib/auth-context';
+import { WorkspaceChat } from '@/components/shared/WorkspaceChat';
 import {
   CheckCircle2,
   XCircle,
@@ -14,6 +15,7 @@ import {
   Clock,
   Loader2,
   FileCheck2,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface ReviewQueueClientProps {
@@ -21,11 +23,13 @@ interface ReviewQueueClientProps {
 }
 
 export function ReviewQueueClient({ initialParticipations }: ReviewQueueClientProps) {
+  const { user } = useAuth();
   const [participations, setParticipations] = useState(initialParticipations);
   const [selectedPart, setSelectedPart] = useState<WorkerParticipation | null>(
     initialParticipations[0] || null
   );
   const [actionLoading, setActionLoading] = useState(false);
+  const [fairReviewAgreed, setFairReviewAgreed] = useState(false);
   const [feedback, setFeedback] = useState('Deliverables verified and accepted.');
   const [rating, setRating] = useState(5);
   const [actionSuccess, setActionSuccess] = useState<string | null>(null);
@@ -41,7 +45,7 @@ export function ReviewQueueClient({ initialParticipations }: ReviewQueueClientPr
       if (res.success) {
         setActionSuccess(
           decision === 'APPROVE'
-            ? 'Submission APPROVED! Demo payout disbursed to worker.'
+            ? 'Submission APPROVED! Payout disbursed to worker.'
             : decision === 'REQUEST_REVISION'
             ? 'Revision requested. Worker notified.'
             : 'Deliverables rejected. 72h dispute appeal window active.'
@@ -68,7 +72,6 @@ export function ReviewQueueClient({ initialParticipations }: ReviewQueueClientPr
           <span className="font-bold text-xs uppercase tracking-wider text-slate-700 dark:text-slate-300">
             Pending Queue ({participations.length})
           </span>
-          <DemoBadge size="sm" variant="teal" />
         </div>
 
         <div className="overflow-y-auto divide-y divide-slate-100 dark:divide-navy-800 flex-1">
@@ -209,40 +212,74 @@ export function ReviewQueueClient({ initialParticipations }: ReviewQueueClientPr
                 </div>
               </div>
 
+              {/* Contextual Rules & Fair Review Compliance Box */}
+              {selectedPart.status !== 'APPROVED' && (
+                <div className="p-3.5 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-xl space-y-2 text-xs">
+                  <div className="font-bold text-amber-900 dark:text-amber-300 flex items-center gap-1.5 text-xs">
+                    <ShieldCheck className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                    Deliverable Evaluation &amp; Fair Review Policy
+                  </div>
+                  <ul className="list-disc list-inside space-y-0.5 text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+                    <li>Workers who meet all campaign requirements must be approved and rewarded without delay.</li>
+                    <li>Rejections without valid justification are strictly prohibited. Workers have 72 hours to appeal to Platform Arbitration.</li>
+                  </ul>
+                  <label className="flex items-start gap-2 pt-1 border-t border-amber-200/60 dark:border-amber-800/40 cursor-pointer text-slate-900 dark:text-white font-semibold select-none">
+                    <input
+                      type="checkbox"
+                      checked={fairReviewAgreed}
+                      onChange={(e) => setFairReviewAgreed(e.target.checked)}
+                      className="mt-0.5 rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="text-xs">
+                      I certify that I have thoroughly and fairly inspected this deliverable in accordance with EarnXpress Review Guidelines. *
+                    </span>
+                  </label>
+                </div>
+              )}
+
               {/* 3 Action Buttons */}
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <button
                   type="button"
-                  disabled={actionLoading || selectedPart.status === 'APPROVED'}
+                  disabled={actionLoading || selectedPart.status === 'APPROVED' || !fairReviewAgreed}
                   onClick={() => handleReview('APPROVE')}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+                  className="bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-300 dark:disabled:bg-navy-800 disabled:cursor-not-allowed text-white font-bold text-xs px-5 py-2.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
                 >
                   {actionLoading ? (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   ) : (
                     <CheckCircle2 className="w-4 h-4" />
                   )}
-                  Approve Deliverables & Release Payout
+                  Approve Deliverables &amp; Release Payout
                 </button>
 
                 <button
                   type="button"
-                  disabled={actionLoading || selectedPart.status === 'APPROVED'}
+                  disabled={actionLoading || selectedPart.status === 'APPROVED' || !fairReviewAgreed}
                   onClick={() => handleReview('REQUEST_REVISION')}
-                  className="bg-amber-600 hover:bg-amber-500 text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
+                  className="bg-amber-600 hover:bg-amber-500 disabled:bg-slate-300 dark:disabled:bg-navy-800 disabled:cursor-not-allowed text-white font-bold text-xs px-4 py-2.5 rounded-lg shadow-sm transition-colors flex items-center gap-1.5"
                 >
                   <RefreshCw className="w-3.5 h-3.5" /> Request Revision
                 </button>
 
                 <button
                   type="button"
-                  disabled={actionLoading || selectedPart.status === 'APPROVED'}
+                  disabled={actionLoading || selectedPart.status === 'APPROVED' || !fairReviewAgreed}
                   onClick={() => handleReview('REJECT')}
-                  className="bg-slate-200 hover:bg-red-600 hover:text-white dark:bg-navy-800 text-slate-700 dark:text-slate-300 font-bold text-xs px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5"
+                  className="bg-slate-200 hover:bg-red-600 hover:text-white disabled:bg-slate-100 disabled:text-slate-400 dark:bg-navy-800 text-slate-700 dark:text-slate-300 disabled:cursor-not-allowed font-bold text-xs px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5"
                 >
                   <XCircle className="w-3.5 h-3.5" /> Reject Deliverables
                 </button>
               </div>
+
+              {/* Direct Workspace Chat with Worker */}
+              <WorkspaceChat
+                taskId={selectedPart.taskId}
+                workerId={selectedPart.workerId}
+                buyerId={user?.id || 'buyer-alex'}
+                peerName={(selectedPart as any).worker?.profile?.displayName || `Worker #${selectedPart.slotNumber}`}
+                defaultExpanded={false}
+              />
             </div>
           </div>
         ) : (

@@ -17,4 +17,9 @@ export class SubmitTaskDto {
   @IsOptional()
   @IsArray()
   completedMilestoneIds?: string[];
+
+  @ApiProperty({ description: 'Array of evidence file IDs uploaded for this submission version', required: false })
+  @IsOptional()
+  @IsArray()
+  evidenceFileIds?: string[];
 }

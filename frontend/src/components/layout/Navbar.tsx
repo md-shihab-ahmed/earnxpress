@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { DemoBadge } from '../shared/DemoBadge';
+import { NotificationBell } from '@/components/shared/NotificationBell';
+import { triggerAppInstall } from '@/components/shared/PwaInstallPrompt';
 import {
   Wallet,
   Menu,
@@ -19,6 +20,7 @@ import {
   Search,
   LogOut,
   User as UserIcon,
+  Smartphone,
 } from 'lucide-react';
 
 export function Navbar() {
@@ -26,7 +28,7 @@ export function Navbar() {
   const { user, role, switchRole, isAuthenticated, logout } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
-  const showDemoShortcuts = process.env.NEXT_PUBLIC_ENABLE_DEMO_SHORTCUTS === 'true';
+  const showDemoShortcuts = false;
 
   const toggleTheme = () => {
     setIsDark(!isDark);
@@ -42,6 +44,8 @@ export function Navbar() {
     if (!isAuthenticated || !user) {
       return [
         { label: 'Marketplace', href: '/tasks' },
+        { label: 'Documentary', href: '/documentary' },
+        { label: 'Refer & Earn', href: '/referrals' },
         { label: 'About', href: '/about' },
         { label: 'How It Works', href: '/help' },
       ];
@@ -51,7 +55,10 @@ export function Navbar() {
       return [
         { label: 'Marketplace', href: '/tasks' },
         { label: 'Worker Dashboard', href: '/worker' },
+        { label: 'Documentary', href: '/documentary' },
+        { label: 'Refer & Earn', href: '/referrals' },
         { label: 'My Wallet', href: '/worker/wallet' },
+        { label: 'KYC', href: '/kyc' },
       ];
     }
 
@@ -59,8 +66,11 @@ export function Navbar() {
       return [
         { label: 'Marketplace', href: '/tasks' },
         { label: 'Buyer Dashboard', href: '/buyer' },
+        { label: 'Documentary', href: '/documentary' },
+        { label: 'Refer & Earn', href: '/referrals' },
         { label: 'Submissions', href: '/buyer/submissions' },
         { label: 'Buyer Wallet', href: '/buyer/wallet' },
+        { label: 'KYC', href: '/kyc' },
       ];
     }
 
@@ -71,8 +81,10 @@ export function Navbar() {
       role === 'SUPPORT_AGENT'
     ) {
       return [
-        { label: 'Admin Governance', href: '/admin' },
+        { label: 'Admin Governance', href: '/shihab-vault-7860' },
+        { label: 'Documentary', href: '/documentary' },
         { label: 'Marketplace', href: '/tasks' },
+        { label: 'Refer & Earn', href: '/referrals' },
       ];
     }
 
@@ -84,11 +96,14 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-navy-900 text-white border-b border-navy-800 shadow-md">
       {/* Top Banner Notice */}
-      <div className="bg-teal-950/80 border-b border-teal-900/60 px-4 py-1 text-center text-xs text-teal-300 flex items-center justify-center gap-2">
-        <DemoBadge size="sm" variant="teal" />
-        <span>EarnXpress Open International Task Marketplace • Simulated Funds Sandbox</span>
-        <Link href="/help" className="underline font-medium hover:text-white ml-2">
-          FAQ & Rules
+      <div className="bg-teal-950/80 border-b border-teal-900/60 px-4 py-1.5 text-center text-xs text-teal-300 flex items-center justify-center gap-2">
+        <span className="inline-flex items-center gap-1.5 bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[10px] px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse"></span>
+          Official
+        </span>
+        <span className="font-medium">EarnXpress Global Freelance &amp; Crowdsourcing Platform • Zero-Fee Direct Bank Transfers</span>
+        <Link href="/help" className="underline font-medium hover:text-white ml-2 text-teal-200">
+          FAQ &amp; Rules
         </Link>
       </div>
 
@@ -239,13 +254,16 @@ export function Navbar() {
                 {/* Admin Specific Actions */}
                 {(role === 'PLATFORM_OWNER' || role === 'SUPER_ADMIN' || role === 'MODERATOR') && (
                   <Link
-                    href="/admin"
+                    href="/shihab-vault-7860"
                     className="flex items-center gap-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition-colors"
                   >
                     <ShieldAlert className="w-3.5 h-3.5" />
                     Admin Console
                   </Link>
                 )}
+
+                {/* Notification Bell */}
+                <NotificationBell />
 
                 {/* Sign Out */}
                 <button
@@ -273,6 +291,19 @@ export function Navbar() {
                 </Link>
               </div>
             )}
+
+            {/* Install App Button (Visible to everyone) */}
+            <button
+              type="button"
+              onClick={triggerAppInstall}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/40 text-teal-300 text-xs font-bold transition-all shadow-sm"
+              title="Install EarnXpress App on Mobile / PC"
+            >
+              <Smartphone className="w-3.5 h-3.5 text-teal-400" />
+              <span>Install App</span>
+            </button>
+
+            {showDemoShortcuts && <NotificationBell />}
 
             {/* Theme Toggle */}
             <button
@@ -319,6 +350,19 @@ export function Navbar() {
                 {link.label}
               </Link>
             ))}
+
+            {/* Mobile Install App Button */}
+            <button
+              type="button"
+              onClick={() => {
+                triggerAppInstall();
+                setMobileMenuOpen(false);
+              }}
+              className="w-full mt-2 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-teal-600 to-emerald-600 text-white font-extrabold text-xs shadow-md border border-teal-400/30"
+            >
+              <Smartphone className="w-4 h-4" />
+              <span>Install EarnXpress App</span>
+            </button>
           </div>
 
           {showDemoShortcuts ? (

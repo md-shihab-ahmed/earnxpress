@@ -1,6 +1,5 @@
 import React from 'react';
 import Link from 'next/link';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { HelpCircle, Clock, ShieldAlert, CheckCircle2, ChevronRight } from 'lucide-react';
 
 export default function HelpPage() {
@@ -18,8 +17,8 @@ export default function HelpPage() {
       a: 'EarnXpress strictly prohibits subjective self-reported progress percentages. Progress percentages are derived directly from verified completed milestone checkpoints on the worker checklist.',
     },
     {
-      q: 'Are the wallet balances real money?',
-      a: 'No. EarnXpress MVP operates strictly in simulated DEMO USD cents for testing and demonstration. You can top up your test wallet using the $1,000 DEMO Faucet button at any time.',
+      q: 'How do payouts and bank transfers work?',
+      a: 'EarnXpress supports direct local bank transfer, wire remittance, and mobile financial services (MFS). Worker withdrawals via direct bank transfer feature 0% platform withdrawal fees.',
     },
   ];
 
@@ -27,7 +26,6 @@ export default function HelpPage() {
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-10">
       <div className="text-center space-y-3">
         <div className="inline-flex items-center gap-1.5">
-          <DemoBadge size="sm" variant="teal" />
           <span className="text-xs uppercase font-bold tracking-wider text-teal-600 font-mono">
             Knowledge Base
           </span>

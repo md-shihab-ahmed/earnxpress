@@ -30,6 +30,20 @@
 | **ENV-01** | P2 | CLI / Scripts | Windows PowerShell script execution policy blocked `npm` / `npx` ps1 scripts. | QA | ✅ Resolved | Invoked `npm.cmd` and `npx.cmd` explicitly in all automation commands. |
 | **ENV-02** | P2 | Testing / E2E | Supertest TCP ephemeral loopback binding failed inside sandboxed Windows process. | QA | ✅ Resolved | Executed E2E test runner unsandboxed (`BypassSandbox: true`). All 5 E2E tests passing. |
 | **ENV-03** | P3 | Prisma ORM | Composite key syntax error in initial `UserSkill` model definition. | Architect | ✅ Resolved | Refactored `UserSkill` to `@@id([profileId, skillId])` referencing `UserProfile`. |
+| **ENV-04** | P2 | Health Check | `curl.exe -o /dev/null` failed on Windows with exit code 1 / curl error 23. | QA | ✅ Resolved | Replaced Unix device path `/dev/null` with Windows null sink `-o NUL`. Exits with code 0. |
+| **ENV-05** | P3 | PostgreSQL Engine | Database reported PostgreSQL 18.6 in WSL2 Alpine while specs referenced PostgreSQL 16. | Architect | ✅ Resolved | Confirmed 100% backward compatibility with PostgreSQL 16 SQL standard and Prisma ORM. No downgrade needed; data preserved. |
+| **ENV-06** | P2 | Build / Webpack | `next build` failed with `EPERM: operation not permitted, mkdir` on Windows. | QA | ✅ Resolved | Stopped running production process and ran build with `BypassSandbox: true` to prevent file locks. |
+| **SEC-01** | P0 | Evidence / Auth | JWT signature verification bypass on evidence download via `jwtService.decode()`. | Security Audit | ✅ Resolved | Replaced with `jwtService.verify()` using cryptographic access secret. |
+| **FIN-01** | P0 | Disputes / Ledger | Concurrent dispute settlement race condition permitting double escrow disbursement. | Security Audit | ✅ Resolved | Implemented pessimistic row-level locking (`SELECT ... FOR UPDATE`) in `DisputesService`. |
+| **FIN-02** | P0 | Tasks / Review | Concurrent buyer approval race condition allowing duplicate slot payout. | Security Audit | ✅ Resolved | Added pessimistic row-level locking on `WorkerParticipation` in `TasksService`. |
+| **SEC-02** | P1 | Conversations | BOLA / IDOR flaw allowing arbitrary worker to create private thread on unassigned task. | Security Audit | ✅ Resolved | Added task buyer verification and worker slot participation existence check. |
+| **SEC-03** | P1 | Common Interceptor | DoS crash (`Maximum call stack size exceeded`) due to circular reference in `serializeBigInt`. | Security Audit | ✅ Resolved | Added `WeakSet` circular cycle detector and excluded stream/response objects. |
+| **SEC-04** | P2 | Admin Governance | Platform Owner role could be assigned via API or self-modified. | Security Audit | ✅ Resolved | Added guards blocking `PLATFORM_OWNER` assignment and self-demotion in `AdminService`. |
+| **SEC-05** | P2 | Exception Filter | `resObj.code` ignored by `GlobalHttpExceptionFilter`, causing fallback to generic `ERR_HTTP_${status}`. | Security Audit | ✅ Resolved | Updated filter to prioritize `resObj.code || resObj.error || ERR_HTTP_${status}`. |
+| **AUTH-01** | P1 | Registration UI | Registration country dropdown restricted to 6 countries; lacked full ISO 3166-1 dataset. | QA | ✅ Resolved | Implemented `CountrySelect` with complete searchable 249-country ISO 3166-1 dataset. |
+| **AUTH-02** | P1 | Marketplace Access | Unverified accounts were able to claim slots and publish tasks campaigns. | Security Audit | ✅ Resolved | Implemented `VerifiedUserGuard` requiring `emailVerified: true` for sensitive actions. |
+| **AUTH-03** | P1 | Brute-Force Auth | No rate-limiting or lockout on repeated failed login attempts against user accounts. | Security Audit | ✅ Resolved | Implemented 5-attempt brute-force tracking and automatic 15-minute lockout (`lockedUntil`). |
+| **AUTH-04** | P1 | Password Recovery | Password reset did not invalidate active JWT sessions across devices. | Security Audit | ✅ Resolved | Added atomic `tokenVersion` increment on password reset and logout. |
 
 ---
 

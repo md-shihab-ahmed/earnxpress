@@ -1,5 +1,4 @@
 import React from 'react';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 
 export default function PrivacyPage() {
   return (
@@ -7,7 +6,6 @@ export default function PrivacyPage() {
       <div className="border-b border-slate-200 dark:border-navy-800 pb-4 space-y-2">
         <div className="flex items-center gap-2">
           <h1 className="text-3xl font-extrabold text-slate-900 dark:text-white">Privacy & Identity Governance</h1>
-          <DemoBadge size="sm" variant="teal" />
         </div>
         <p className="text-xs text-slate-500">Effective Date: November 2026</p>
       </div>

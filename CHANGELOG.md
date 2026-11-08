@@ -7,6 +7,94 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-11-04
+
+### Authentication, Registration & International Country Support
+
+#### Added
+- **Complete ISO 3166-1 International Country Support**:
+  - Full 249-country dataset in `backend/src/common/constants/countries.constant.ts` and `frontend/src/lib/constants/countries.ts` with ISO alpha-2 codes, full English country names, and international dialing codes.
+  - Searchable `CountrySelect` combobox component on registration with real-time filtering, flag/code display, and keyboard navigation.
+  - Strict backend validation constraint (`IsIso3166CountryCodeConstraint`) rejecting any non-standard country code.
+- **Strict Password Security Policy & Common Password Blacklist**:
+  - 8 to 64 character length policy with uppercase (A-Z), lowercase (a-z), numeric (0-9), and symbol (@, #, $, !, %, &, *, etc.) requirements.
+  - Common dictionary blacklist (`COMMON_PASSWORDS_BLACKLIST`) disallowing commonly leaked or guessed passwords (e.g. `Password123!`, `Admin12345!`).
+  - Username/email similarity detection preventing local-part inclusion in passwords.
+  - Frontend `PasswordStrengthMeter` component with real-time score bar and visual requirement checklists.
+  - Confirm Password matching enforced on both frontend and backend.
+  - Password hashing via Argon2id with secure 12-round bcrypt fallback.
+- **Email Verification & Rate Limiting**:
+  - Single-use 32-byte cryptographic random verification tokens (24-hour TTL).
+  - Storage of SHA-256 token hash only (`EmailVerificationToken`), never plaintext tokens.
+  - Single-use token consumption (`usedAt` timestamp) preventing replay attacks.
+  - 60-second rate-limiting cooldown between resend verification requests (`HTTP 429 ERR_RATE_LIMIT_EXCEEDED`).
+  - `VerifiedUserGuard` blocking unverified accounts from task creation, slot claims, deliverable submissions, and withdrawals (`ERR_EMAIL_UNVERIFIED`).
+  - `EmailDeliveryService` with configurable SMTP support and transparent `PENDING_DELIVERY_UNCONFIGURED` reporting without false claims.
+  - Dedicated `/verify-email` page supporting token auto-consumption from URL or manual entry.
+- **Brute-Force Lockout & Password Recovery**:
+  - 5-attempt failed login tracking with automatic 15-minute account lockout (`lockedUntil`).
+  - Generic authentication error messages preventing user enumeration.
+  - Forgot Password and Password Reset workflows (`POST /api/v1/auth/forgot-password`, `POST /api/v1/auth/reset-password`).
+  - Password reset automatically clears failed login counters, lifts account lockouts, and increments `tokenVersion` (revoking all active refresh tokens/sessions).
+  - Secure `/reset-password` page with password complexity checklist and show/hide controls.
+  - Secure `/logout` endpoint incrementing `tokenVersion` and clearing HTTP-only auth cookies.
+- **Extensible International KYC Architecture (`IdvModule`)**:
+  - `IKycProvider` contract supporting country-specific ID types and future biometric liveness/face-match sessions.
+  - `MockKycProvider` providing country-specific configurations (Bangladesh: Smart NID, Legacy NID, Passport, BRTA Driving License; US: Driver's License, Passport, State ID; UK: Passport, DVLA Licence, BRP; Germany: Personalausweis, Reisepass; India: Masked Aadhaar, PAN; Nigeria: NIN; Philippines: PhilID).
+  - Deduplicated identity verification hashing (`identityDedupHash`) preventing duplicate identities across accounts without storing raw unmasked IDs.
+  - Endpoints: `GET /api/v1/idv/supported-documents`, `POST /api/v1/idv/liveness-session`, `POST /api/v1/idv/submit-mock`, `GET /api/v1/idv/status`.
+- **Automated Verification**:
+  - Automated test suite `backend/test-auth-country-security.js` with 27 out of 27 passing tests (100% pass rate).
+  - 65 out of 65 backend unit tests passing across 9 test suites.
+
+---
+
+## [1.4.1] - 2026-11-04
+
+### Targeted Security & Financial Integrity Hardening
+
+#### Security & Concurrency Fixes
+- **Evidence Download Authentication Fix (`EvidenceController`)**: Replaced unverified `jwtService.decode` with cryptographic `jwtService.verify`, eliminating authentication bypass vulnerability on private evidence streaming.
+- **Pessimistic Row Locking for Dispute Settlements (`DisputesService`)**: Added PostgreSQL row-level locks (`SELECT ... FOR UPDATE`) on `Dispute` and `WorkerParticipation` within resolution transactions, preventing race conditions, duplicate settlements, and double escrow releases.
+- **Pessimistic Row Locking for Buyer Approvals (`TasksService`)**: Added row-level lock on `WorkerParticipation` during submission approval, preventing concurrent duplicate slot payouts.
+- **BOLA / IDOR Verification on Private Threads (`ConversationsService`)**: Enforced validation that specified `buyerId` owns the task and `workerId` has an active slot participation before opening private 1-on-1 conversations.
+- **Circular Reference Cycle Protection (`TransformResponseInterceptor`)**: Integrated `WeakSet` traversal tracking in `serializeBigInt`, preventing process crash on stream/response objects.
+- **Platform Owner Exclusivity (`AdminService`)**: Blocked assignment of `PLATFORM_OWNER` via staff API and prevented self-role modification.
+- **Duplicate Transaction Defense (`DemoFinanceService`)**: Added transaction existence verification in `disburseSlotPayout` and `settleDisputeSplit`.
+
+---
+
+## [1.4.0] - 2026-11-04
+
+### Phase 2: Dispute Resolution & Evidence Management
+
+#### Added
+- **Secure Evidence Management Module (`EvidenceModule`)**:
+  - `POST /api/v1/evidence/upload`: Multer multipart form upload with binary magic-byte inspection verifying claimed MIME against payloads (`image/png`, `image/jpeg`, `image/webp`, `image/gif`, `application/pdf`, `video/mp4`, `video/webm`, `video/quicktime`, `application/zip`, `text/plain`, `text/csv`).
+  - File size bounds: 25MB for documents/images, 50MB for video evidence.
+  - Built-in malware scanning interface (`IMalwareScanner`, `DefaultMalwareScanner`) blocking dangerous executable signatures (PE `MZ`, ELF, Java class bytecode).
+  - SHA-256 cryptographic hashing on all stored evidence files with private storage under `backend/uploads/evidence/`.
+  - HMAC-SHA256 time-limited signed download URLs (`GET /api/v1/evidence/:id/download?token=...`) with participation authorization checks.
+- **In-Platform Communication & Collaboration (`ConversationsModule`)**:
+  - Public Task Q&A threads (`isPublicQnA = true`) on marketplace tasks: `GET /api/v1/conversations/task/:taskId/qna` and `POST /api/v1/conversations/task/:taskId/qna`.
+  - Private 1-on-1 Buyer-Worker slot threads: `GET /api/v1/conversations/slot/:taskId/worker/:workerId/buyer/:buyerId`.
+  - Real database-backed `TaskQnA` component embedded in task details (`/tasks/[id]`), replacing static placeholders.
+- **Dispute Resolution & Arbitration System (`DisputesModule`)**:
+  - Formal dispute filing on participation slots (`POST /api/v1/disputes`) with reason codes: `UNJUSTIFIED_REJECTION`, `BUYER_UNRESPONSIVE_SLA`, `NON_COMPLIANT_DELIVERABLE`, `COMMUNICATION_BREAKDOWN`, `EVIDENCE_OF_FRAUD`, `OTHER`.
+  - Transitions slot status to `DISPUTED` with attached evidence files.
+  - Comprehensive Arbitration Dossier (`GET /api/v1/disputes/:id`): task instructions, worker submission versions, deliverable URLs, uploaded evidence with signed download links, and audit history.
+  - Four distinct arbitration verdicts: `SETTLE_WORKER`, `REFUND_BUYER`, `SPLIT_SETTLEMENT`, and `DISMISS`.
+  - `DemoFinanceService.settleDisputeSplit(...)`: atomic double-entry ledger transactions enforcing that worker net payout + buyer refund + platform revenue strictly equals the total reserved slot escrow.
+- **Frontend Components & Console**:
+  - `EvidenceUploader`: Drag-and-drop file upload with progress bar, clean scan indicator, and signed URL generation.
+  - `DisputeModal`: Formal dispute dialog with reason code selector, statement input, and embedded evidence uploader.
+  - Admin "Dispute Arbitration Console" tab in `/admin` with one-click dossier inspection and interactive verdict ruling tools.
+- **Testing & Quality Assurance**:
+  - Unit test suites for `EvidenceService` and `DisputesService` (9 passed, 65 total tests passing).
+  - 12-stage Phase 2 E2E test suite (`backend/test-phase2-e2e.js`) validating evidence upload, signed URL streaming, task Q&A, slot claim, deliverable submission, buyer rejection, dispute filing, dossier review, and split settlement ledger invariants.
+
+---
+
 ## [1.3.0] - 2026-11-03
 
 ### Phase 2: Complete Next.js Website & Multi-Portal Experience

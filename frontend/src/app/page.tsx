@@ -2,7 +2,6 @@ import React from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { TaskCard } from '@/components/shared/TaskCard';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import {
   Search,
   Users,
@@ -32,10 +31,9 @@ export default async function HomePage() {
         <div className="absolute bottom-0 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-5xl mx-auto text-center space-y-6">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-950/80 border border-teal-800/80 text-xs font-semibold text-teal-300">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-teal-950/80 border border-teal-800/80 text-xs font-semibold text-teal-300">
             <Sparkles className="w-3.5 h-3.5 text-teal-400" />
             <span>Open International Marketplace Architecture</span>
-            <DemoBadge size="sm" variant="teal" />
           </div>
 
           <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight leading-tight text-white max-w-4xl mx-auto">
@@ -48,7 +46,7 @@ export default async function HomePage() {
 
           <p className="text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
             EarnXpress is an open international task marketplace where Buyers fund scalable campaigns,
-            and Workers claim transparent slots with isolated deadlines, verified milestones, and instant demo settlements.
+            and Workers claim transparent slots with isolated deadlines, verified milestones, and guaranteed escrow payouts.
           </p>
 
           {/* Quick Search Bar */}
@@ -137,7 +135,7 @@ export default async function HomePage() {
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
               Buyers set capacity (e.g. 50 slots). 50 workers claim slots simultaneously with independent
-              deadlines, submissions, and demo payouts.
+              deadlines, submissions, and direct payouts.
             </p>
           </div>
 

@@ -2,7 +2,6 @@ import React from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
 import { TaskCard } from '@/components/shared/TaskCard';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { Search, Filter, Users, Zap, SlidersHorizontal, RefreshCcw } from 'lucide-react';
 
 interface TasksPageProps {
@@ -31,7 +30,6 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
             <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 dark:text-white">
               Open Task Marketplace
             </h1>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Browse high-capacity campaigns and competitive bounties. Zero gatekeeping — claim any open slot.

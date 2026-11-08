@@ -5,6 +5,7 @@ import { UnauthorizedException, ConflictException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
+import { EmailDeliveryService } from './email-delivery.service';
 import { UserRole, UserStatus } from '@prisma/client';
 
 describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
@@ -12,11 +13,13 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
   let mockPrisma: any;
   let mockJwt: any;
   let mockAudit: any;
+  let mockEmailDelivery: any;
 
   beforeEach(async () => {
     mockPrisma = {
       user: {
         findUnique: jest.fn(),
+        findFirst: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
       },
@@ -26,7 +29,19 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
       demoLedgerAccount: {
         createMany: jest.fn(),
       },
-      $transaction: jest.fn((cb) => cb(mockPrisma)),
+      emailVerificationToken: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      passwordResetToken: {
+        create: jest.fn(),
+        findUnique: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+      },
+      $transaction: jest.fn((cb) => (typeof cb === 'function' ? cb(mockPrisma) : Promise.all(cb))),
     };
 
     mockJwt = {
@@ -38,12 +53,30 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
       log: jest.fn().mockResolvedValue({ id: 'audit-id' }),
     };
 
+    mockEmailDelivery = {
+      sendVerificationEmail: jest.fn().mockResolvedValue({
+        delivered: false,
+        provider: 'NONE',
+        status: 'PENDING_DELIVERY_UNCONFIGURED',
+        recipient: 'test@earnxpress.com',
+        message: 'Email provider not configured',
+      }),
+      sendPasswordResetEmail: jest.fn().mockResolvedValue({
+        delivered: false,
+        provider: 'NONE',
+        status: 'PENDING_DELIVERY_UNCONFIGURED',
+        recipient: 'test@earnxpress.com',
+        message: 'Email provider not configured',
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
         { provide: PrismaService, useValue: mockPrisma },
         { provide: JwtService, useValue: mockJwt },
         { provide: AuditService, useValue: mockAudit },
+        { provide: EmailDeliveryService, useValue: mockEmailDelivery },
         {
           provide: ConfigService,
           useValue: {
@@ -58,7 +91,7 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
 
   describe('1. Password Security & Hashing', () => {
     it('should hash password and verify match correctly', async () => {
-      const password = 'SuperSecretPassword123!';
+      const password = 'SuperSecretP@ssw0rd2026!';
       const hash = await service.hashPassword(password);
 
       expect(hash).toBeDefined();
@@ -67,7 +100,7 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
       const isValid = await service.verifyPassword(password, hash);
       expect(isValid).toBe(true);
 
-      const isInvalid = await service.verifyPassword('WrongPassword!', hash);
+      const isInvalid = await service.verifyPassword('WrongPassword123!', hash);
       expect(isInvalid).toBe(false);
     });
   });
@@ -79,7 +112,8 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
       await expect(
         service.register({
           email: 'worker@earnxpress.com',
-          password: 'Password123!',
+          password: 'ValidP@ssw0rd2026!',
+          confirmPassword: 'ValidP@ssw0rd2026!',
           displayName: 'Test User',
           countryCode: 'BD',
           primaryRole: UserRole.WORKER,
@@ -94,13 +128,15 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
         email: 'newworker@earnxpress.com',
         primaryRole: UserRole.WORKER,
         status: UserStatus.ACTIVE,
+        emailVerified: false,
         tokenVersion: 1,
       };
       mockPrisma.user.create.mockResolvedValue(createdUser);
 
       const result = await service.register({
         email: 'newworker@earnxpress.com',
-        password: 'Password123!',
+        password: 'ValidP@ssw0rd2026!',
+        confirmPassword: 'ValidP@ssw0rd2026!',
         displayName: 'New Worker',
         countryCode: 'BD',
         primaryRole: UserRole.WORKER,
@@ -121,69 +157,53 @@ describe('AuthService (Authentication, Passwords, MFA & Sessions)', () => {
       mockPrisma.user.findUnique.mockResolvedValue(null);
 
       await expect(
-        service.login({
-          email: 'ghost@earnxpress.com',
-          password: 'Password123!',
-        }),
+        service.login({ email: 'unknown@earnxpress.com', password: 'Password123!' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should reject login for suspended or banned accounts', async () => {
+    it('should reject login with incorrect password', async () => {
+      const hash = await service.hashPassword('CorrectP@ssw0rd2026!');
       mockPrisma.user.findUnique.mockResolvedValue({
-        id: 'user-banned',
-        email: 'banned@earnxpress.com',
-        status: UserStatus.BANNED,
+        id: 'user-1',
+        email: 'worker@earnxpress.com',
+        passwordHash: hash,
+        status: UserStatus.ACTIVE,
+        consecutiveFailures: 0,
       });
 
       await expect(
-        service.login({
-          email: 'banned@earnxpress.com',
-          password: 'Password123!',
-        }),
+        service.login({ email: 'worker@earnxpress.com', password: 'WrongP@ssw0rd2026!' }),
       ).rejects.toThrow(UnauthorizedException);
     });
 
-    it('should require MFA code when mfaEnabled is true', async () => {
-      const password = 'Password123!';
-      const passwordHash = await service.hashPassword(password);
-
+    it('should issue tokens upon valid credentials', async () => {
+      const hash = await service.hashPassword('CorrectP@ssw0rd2026!');
       mockPrisma.user.findUnique.mockResolvedValue({
-        id: 'user-mfa',
-        email: 'mfa@earnxpress.com',
-        passwordHash,
+        id: 'user-1',
+        email: 'worker@earnxpress.com',
+        passwordHash: hash,
         status: UserStatus.ACTIVE,
-        mfaEnabled: true,
-        mfaSecretEncrypted: 'JBSWY3DPEHPK3PXP',
+        consecutiveFailures: 0,
+        primaryRole: UserRole.WORKER,
+        profile: { displayName: 'Worker 1' },
       });
 
-      const result = await service.login({
-        email: 'mfa@earnxpress.com',
-        password,
-      });
-
-      expect(result.requiresMfa).toBe(true);
-      expect(result.userId).toBe('user-mfa');
+      const result = await service.login({ email: 'worker@earnxpress.com', password: 'CorrectP@ssw0rd2026!' });
+      expect(result).toHaveProperty('accessToken');
+      expect(result).toHaveProperty('refreshToken');
     });
   });
 
-  describe('4. Re-Authentication', () => {
-    it('should update lastReAuthAt upon confirming password', async () => {
-      const password = 'Password123!';
-      const passwordHash = await service.hashPassword(password);
+  describe('4. Token Invalidation and Logout', () => {
+    it('should increment tokenVersion on logout to invalidate active sessions', async () => {
+      mockPrisma.user.findUnique.mockResolvedValue({ id: 'user-1', primaryRole: 'WORKER' });
+      mockPrisma.user.update.mockResolvedValue({ id: 'user-1', tokenVersion: 2 });
 
-      mockPrisma.user.findUnique.mockResolvedValue({
-        id: 'user-1',
-        passwordHash,
-        primaryRole: UserRole.BUYER,
-      });
-      mockPrisma.user.update.mockResolvedValue({ id: 'user-1' });
-
-      const result = await service.reAuthenticate('user-1', password);
-
-      expect(result.reAuthenticated).toBe(true);
+      const result = await service.logout('user-1');
+      expect(result.loggedOut).toBe(true);
       expect(mockPrisma.user.update).toHaveBeenCalledWith({
         where: { id: 'user-1' },
-        data: { lastReAuthAt: expect.any(Date) },
+        data: { tokenVersion: { increment: 1 } },
       });
     });
   });

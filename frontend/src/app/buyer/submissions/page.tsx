@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import { ReviewQueueClient } from './review-queue-client';
 import { ArrowLeft, FileCheck2 } from 'lucide-react';
 
@@ -26,7 +25,6 @@ export default async function BuyerSubmissionsPage() {
               <FileCheck2 className="w-6 h-6 text-teal-600" />
               Submissions Review Queue
             </h1>
-            <DemoBadge size="sm" variant="teal" />
           </div>
           <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
             Evaluate worker deliverable packages against objective criteria within the 72-hour review SLA.

@@ -709,7 +709,7 @@ export class TasksService {
         });
       }
 
-      await tx.submissionVersion.create({
+      const subVersion = await tx.submissionVersion.create({
         data: {
           submissionId: submission.id,
           versionNumber: nextVersion,
@@ -720,6 +720,16 @@ export class TasksService {
             : null,
         },
       });
+
+      if (dto.evidenceFileIds && dto.evidenceFileIds.length > 0) {
+        await tx.evidenceFile.updateMany({
+          where: { id: { in: dto.evidenceFileIds } },
+          data: {
+            submissionVersionId: subVersion.id,
+            participationId,
+          },
+        });
+      }
 
       const reviewOverdueAt = new Date(
         Date.now() + participation.task.reviewSlaHours * 60 * 60 * 1000,
@@ -793,11 +803,36 @@ export class TasksService {
     }
 
     if (dto.decision === ReviewDecision.APPROVE) {
-      if (participation.task.escrowFundingStatus === EscrowFundingStatus.FUNDED_REAL && this.paymentsService) {
-        await this.paymentsService.settleWorkerSlotReal(participation.id);
-      }
-
       return this.prisma.$transaction(async (tx) => {
+        // 1. Pessimistic row-level lock on WorkerParticipation to serialize concurrent approval attempts
+        let currentStatus = participation.status;
+        if (typeof tx.$queryRaw === 'function') {
+          const lockedRows: any[] = await tx.$queryRaw`
+            SELECT "id", "status"
+            FROM "WorkerParticipation"
+            WHERE "id" = ${participationId}::uuid
+            FOR UPDATE
+          `;
+
+          if (lockedRows && lockedRows.length > 0) {
+            currentStatus = lockedRows[0].status;
+          }
+        }
+
+        if (
+          currentStatus !== ParticipationStatus.SUBMITTED &&
+          currentStatus !== ParticipationStatus.UNDER_REVIEW &&
+          currentStatus !== ParticipationStatus.REVIEW_OVERDUE
+        ) {
+          throw new BadRequestException(
+            `Cannot approve participation in current status: ${currentStatus}`,
+          );
+        }
+
+        if (participation.task.escrowFundingStatus === EscrowFundingStatus.FUNDED_REAL && this.paymentsService) {
+          await this.paymentsService.settleWorkerSlotReal(participation.id);
+        }
+
         const unitBudgetCents = BigInt(participation.task.unitBudgetCents || 0);
         const workerFeeCents = BigInt(participation.task.workerFeeCents || 0);
         let netPayoutCents = unitBudgetCents > workerFeeCents ? unitBudgetCents - workerFeeCents : unitBudgetCents;
@@ -1029,6 +1064,54 @@ export class TasksService {
       milestoneId,
       isCompleted,
       progressPercentage: updated.progressPercentage,
+    };
+  }
+
+  /**
+   * Escalate overdue submission review past the 72h SLA
+   */
+  async escalateOverdueReview(userId: string, participationId: string, ipAddress?: string) {
+    const participation = await this.prisma.workerParticipation.findUnique({
+      where: { id: participationId },
+      include: { task: true },
+    });
+
+    if (!participation) throw new NotFoundException('Participation record not found');
+    if (participation.workerId !== userId && participation.task.buyerId !== userId) {
+      throw new ForbiddenException('Not authorized for this participation');
+    }
+
+    if (participation.status !== ParticipationStatus.SUBMITTED && participation.status !== ParticipationStatus.UNDER_REVIEW) {
+      throw new BadRequestException(`Cannot escalate review in ${participation.status} status`);
+    }
+
+    const now = new Date();
+    if (participation.reviewOverdueAt && now < participation.reviewOverdueAt) {
+      const remainingHours = Math.ceil((participation.reviewOverdueAt.getTime() - now.getTime()) / (1000 * 60 * 60));
+      throw new BadRequestException(`Review SLA is still active. ${remainingHours} hours remaining before overdue escalation.`);
+    }
+
+    const updated = await this.prisma.workerParticipation.update({
+      where: { id: participationId },
+      data: { status: ParticipationStatus.REVIEW_OVERDUE },
+    });
+
+    await this.auditService.log({
+      actorId: userId,
+      actorRole: 'USER',
+      action: 'REVIEW_SLA_BREACH_ESCALATED',
+      resourceType: 'WorkerParticipation',
+      resourceId: participationId,
+      newState: { status: ParticipationStatus.REVIEW_OVERDUE },
+      ipAddress,
+      reason: '72-hour buyer review SLA breached without review decision',
+    });
+
+    return {
+      success: true,
+      participationId: updated.id,
+      status: updated.status,
+      message: 'Submission escalated to REVIEW_OVERDUE. Eligible for dispute arbitration.',
     };
   }
 }

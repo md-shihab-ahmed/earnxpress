@@ -3,9 +3,9 @@ import { IsEnum, IsNumber, IsObject, IsOptional, IsString, Min } from 'class-val
 import { WithdrawalMethodType } from '@prisma/client';
 
 export class CreateWithdrawalDto {
-  @ApiProperty({ example: 5000, description: 'Withdrawal amount in USD cents (min $10.00 = 1000 cents)' })
+  @ApiProperty({ example: 400, description: 'Withdrawal amount in USD cents (min $4.00 = 400 cents)' })
   @IsNumber()
-  @Min(1000)
+  @Min(400)
   amountCents: number;
 
   @ApiProperty({ enum: WithdrawalMethodType, example: WithdrawalMethodType.BANK_TRANSFER })

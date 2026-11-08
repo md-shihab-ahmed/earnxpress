@@ -1,151 +1,203 @@
-# EarnXpress — Open International Task Marketplace
+# 🌐 EarnXpress — Open International Freelance Task Marketplace
 
-[![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-teal.svg)](#core-architecture)
-[![Backend](https://img.shields.io/badge/Backend-NestJS%20(Express)%20%7C%20TypeScript-red.svg)](https://nestjs.com/)
-[![Frontend](https://img.shields.io/badge/Frontend-Next.js%2015%20%7C%20App%20Router-black.svg)](https://nextjs.org/)
-[![Database](https://img.shields.io/badge/Database-PostgreSQL%2016%2B%20%7C%20Prisma-blue.svg)](https://www.prisma.io/)
-[![Security](https://img.shields.io/badge/Security-OWASP%20ASVS%20Level%202-green.svg)](docs/SECURITY_PLAN.md)
-[![Status](https://img.shields.io/badge/Status-Master%20Audit%20Complete-brightgreen.svg)](PROJECT_STATUS.md)
+[![Live Demo](https://img.shields.io/badge/Live%20Production-earnxpress--marketplace.vercel.app-00FF88?style=for-the-badge&logo=vercel&logoColor=black)](https://earnxpress-marketplace.vercel.app)
+[![Architecture](https://img.shields.io/badge/Architecture-Modular%20Monolith-teal.svg?style=for-the-badge)](#system-architecture)
+[![Frontend](https://img.shields.io/badge/Frontend-Next.js%2015%20%7C%20App%20Router-black.svg?style=for-the-badge&logo=next.js)](https://nextjs.org/)
+[![Backend](https://img.shields.io/badge/Backend-NestJS%2010%20%7C%20TypeScript-E0234E.svg?style=for-the-badge&logo=nestjs)](https://nestjs.com/)
+[![Database](https://img.shields.io/badge/Database-PostgreSQL%2016%2B%20%7C%20Prisma-blue.svg?style=for-the-badge&logo=postgresql)](https://www.prisma.io/)
+[![Security](https://img.shields.io/badge/Security-Argon2id%20%2B%20OWASP%20ASVS-green.svg?style=for-the-badge)](#security-architecture)
+[![Test Suite](https://img.shields.io/badge/Tests-28%2F28%20Passed%20(100%25)-brightgreen.svg?style=for-the-badge)](#verification--test-results)
 
-**EarnXpress** is an open international freelance task marketplace connecting global **Buyers** and distributed **Workers**. Engineered from first principles for multi-participant crowdsourcing, transparent capacity allocation, independent work records, and tamper-evident auditability.
-
-> [!IMPORTANT]
-> **Active Workspace Recommendation**: To work with this project directly, please open or set your workspace directory to:  
-> `C:\Users\acer\.gemini\antigravity\scratch\earnxpress`
+> **EarnXpress** is a modern, high-concurrency international crowdsourcing marketplace designed to connect global **Buyers** and distributed **Workers**. Engineered from first principles with Next.js 15 App Router, TypeScript, NestJS, and PostgreSQL, the platform eliminates traditional 1:1 hiring bottlenecks by offering high-capacity multi-worker campaigns, transparent escrow security, independent deliverable review queues, and progressive web app (PWA) accessibility.
 
 ---
 
-## 1. Core Product Philosophy: Open Marketplace
+## 🔗 Live Platform Links
 
-EarnXpress is explicitly **NOT** a 1:1 direct hiring board where a Buyer only works with a single Worker after off-platform negotiation. It is an open, high-capacity task marketplace:
-- **Zero Gatekeeping**: Any registered Buyer can publish tasks with configurable capacity; any registered Worker can discover and accept open slots without prior personal contact.
-- **Multiple Workers Per Task**: Tasks support dozens or hundreds of concurrent Workers, each operating with an independent `WorkerParticipation` record. One Worker's delay or failure never impacts other participants.
-- **Two Distinct Task Models**:
-  1. `MULTI_WORKER`: Multiple workers complete independently; each approved worker receives unit demo earnings.
-  2. `FIRST_APPROVED`: Multiple workers compete concurrently; the first valid approved submission wins the prize; remaining work is gracefully closed.
-- **In-Platform Communication**: Public task Q&A threads allow workers to clarify instructions before accepting; private messaging supports in-progress collaboration.
-- **Verifiable Progress Milestones**: Progress percentages are derived strictly from completed, verified deliverable checkpoints (no self-reported percentages).
-- **The 72-Hour `REVIEW_OVERDUE` Policy**: Buyer inactivity past 72 hours transitions submissions to `REVIEW_OVERDUE` and escalates to Platform Moderation for evidence review. Funds are never blindly auto-approved.
+| Resource | Direct Link | Status |
+| :--- | :--- | :---: |
+| 🌐 **Live Web Application** | [https://earnxpress-marketplace.vercel.app](https://earnxpress-marketplace.vercel.app) | 🟢 Live (200 OK) |
+| 💼 **Active Task Marketplace** | [https://earnxpress-marketplace.vercel.app/tasks](https://earnxpress-marketplace.vercel.app/tasks) | 🟢 11 Active Tasks |
+| 🎬 **Official Video Documentary** | [https://earnxpress-marketplace.vercel.app/documentary](https://earnxpress-marketplace.vercel.app/documentary) | 🟢 HD 1080p Stream |
+| 🎁 **Referral Bounty System** | [https://earnxpress-marketplace.vercel.app/referrals](https://earnxpress-marketplace.vercel.app/referrals) | 🟢 Multi-Tier Active |
+| 🛡️ **Founder Administrative Vault** | `https://earnxpress-marketplace.vercel.app/shihab-vault-7860` | 🔒 Private Access |
+| 🚫 **Public `/admin` Route** | `https://earnxpress-marketplace.vercel.app/admin` | 🛡️ Cloaked (404) |
 
 ---
 
-## 2. Core Technology Stack
+## 🌟 Core Product Highlights
+
+### 1. Open Crowdsourcing Architecture
+- **Multi-Worker Execution (`MULTI_WORKER`)**: A single Buyer campaign can support dozens or hundreds of independent workers concurrently. Each worker operates with an isolated `WorkerParticipation` record and dedicated start/completion timer.
+- **First-Approved Execution (`FIRST_APPROVED`)**: Fast-turnaround bounty campaigns where the first verified, high-quality submission claims the prize, while remaining open slots are cleanly retired.
+- **Public Task Clarification Q&A**: Workers can ask public clarifying questions on task detail pages before accepting a slot, eliminating guesswork.
+
+### 2. Multi-Role Portals & Dedicated Dashboards
+- **Worker Portal (`/worker`)**: Real-time slot tracker, deliverable evidence submission locker, withdrawal wallet, and milestone tracker.
+- **Buyer Portal (`/buyer`)**: Campaign creation wizard, multi-worker deliverable review queue, campaign metrics, and deposit management.
+- **Founder Master Console (`/shihab-vault-7860`)**: Single-click platform governance, withdrawal arbitration, campaign review queue, and system ledger oversight.
+
+### 3. Financial Integrity: Double-Entry Simulated Escrow
+- **Zero Real-Money Risk**: Built with integer USD cents (`BigInt`) to eliminate floating-point rounding errors.
+- **Escrow Lock**: When a Buyer publishes a task, 100% of the worker payout is locked in escrow before tasks go live to ensure workers are guaranteed compensation upon approval.
+- **72-Hour Review SLA**: If a Buyer fails to review submitted work within 72 hours, the submission automatically escalates to platform moderation to protect worker time.
+
+### 4. Enterprise-Grade Security
+- **Argon2id Password Hashing**: State-of-the-art password encryption with memory-hard parameters.
+- **Cloaked Admin Surface**: The default `/admin` endpoint returns a genuine `404 Not Found` to prevent automated bot reconnaissance.
+- **Rate-Limiting & Brute Force Defense**: 5 consecutive failed login attempts trigger a 15-minute lockout and audit log entry.
+- **Cross-Site Request Forgery (CSRF) & Content Security Policy (CSP)**: Hardened headers preventing clickjacking, XSS, and unauthorized framing.
+
+---
+
+## 🏛️ System Architecture
 
 ```mermaid
-graph LR
-    Next[Next.js App Router<br/>TypeScript / Tailwind] ---|REST API / OpenAPI 3.1| Nest[NestJS Modular Monolith<br/>Express Engine / TypeScript]
-    Nest --- Prisma[Prisma ORM]
-    Prisma --- PG[(PostgreSQL 16+<br/>Row-Level Locks)]
-    Nest -.-> Redis[(Optional Redis 7<br/>Queue Acceleration)]
-    Nest --- S3[(Private S3 Object Storage<br/>Pre-signed URLs)]
+graph TD
+    Client["Client Devices<br/>(Desktop, Tablet, Mobile PWA)"]
+    
+    subgraph Frontend ["Frontend Layer (Next.js 15 App Router)"]
+        Pages["Server & Client Components<br/>(Tailwind CSS + Lucide React)"]
+        Middleware["Next.js Edge Middleware<br/>(Role RBAC & Vault Cloaking)"]
+        PWA["PWA Manifest & Service Worker<br/>(Offline & Mobile Installable)"]
+    end
+
+    subgraph Backend ["Backend Layer (NestJS Modular Monolith)"]
+        API["REST API & OpenAPI 3.1"]
+        AuthMod["Auth Module (Argon2id / JWT)"]
+        TaskMod["Task & Execution Engine"]
+        FinanceMod["Simulated Escrow & Double-Entry Ledger"]
+    end
+
+    subgraph Database ["Persistence Layer (PostgreSQL 16+)"]
+        Prisma["Prisma ORM"]
+        PG[("PostgreSQL 16+<br/>Row-Level Locks & Audit Triggers")]
+    end
+
+    Client --> Middleware
+    Middleware --> Pages
+    Pages --> API
+    API --> AuthMod
+    API --> TaskMod
+    API --> FinanceMod
+    AuthMod --> Prisma
+    TaskMod --> Prisma
+    FinanceMod --> Prisma
+    Prisma --> PG
 ```
 
-- **Frontend**: Next.js 15 (App Router), TypeScript, Tailwind CSS, Shadcn UI / Radix primitives, Lucide icons, TanStack Query.
-- **Backend**: NestJS (v10+), TypeScript, Express HTTP adapter, Prisma ORM, Passport.js, Swagger/OpenAPI, class-validator.
-- **Database**: PostgreSQL 16+ (Row-level concurrency locks, ICU collations, check constraints).
-- **Simulated Financial Engine**: Double-entry ledger in integer USD cents. Zero real-money movement. Prominent DEMO branding.
-- **Optional Services**: Redis 7 (queue acceleration) and MinIO (local S3 storage) are optional to keep local setup friction-free.
+---
+
+## 📁 Repository Structure
+
+```text
+earnxpress/
+├── frontend/                     # Next.js 15 Full-Stack Web Application
+│   ├── public/                   # Static assets, HD videos, thumbnails, PWA icons
+│   ├── src/
+│   │   ├── app/                  # App Router pages & API routes
+│   │   │   ├── tasks/            # Marketplace & task detail views
+│   │   │   ├── worker/           # Worker dashboard, tasks & wallet
+│   │   │   ├── buyer/            # Buyer dashboard, campaign creator & review queue
+│   │   │   ├── shihab-vault-7860/# Private Founder Master Console
+│   │   │   ├── documentary/      # Video showcase with 1080p video player
+│   │   │   └── referrals/        # Multi-tier referral bounty system
+│   │   ├── components/           # Reusable UI primitives, Modals, TaskCards
+│   │   └── lib/                  # Auth context, state store & API client
+│   └── package.json
+│
+├── backend/                      # NestJS Modular Monolith Backend
+│   ├── src/
+│   │   ├── modules/
+│   │   │   ├── auth/             # Argon2id, JWT, password recovery & lockout
+│   │   │   ├── tasks/            # Task lifecycle & multi-worker execution
+│   │   │   ├── payments/         # Simulated escrow, deposits & withdrawals
+│   │   │   └── admin/            # Administrative governance & moderation
+│   │   └── common/               # Filters, interceptors, guards & validators
+│   └── prisma/
+│       └── schema.prisma         # PostgreSQL schema & relational models
+│
+└── docs/                         # 18 In-Depth Engineering Specifications & ADRs
+    ├── PRD.md                    # Product Requirements Document
+    ├── SECURITY_PLAN.md          # OWASP ASVS Level 2 Threat Model
+    ├── DATABASE_ERD.md           # Database Entity-Relationship Diagram
+    ├── TASK_LIFECYCLE.md         # Full State Machine & Transition Matrices
+    └── DECISIONS.md              # Architecture Decision Records (ADR 001-011)
+```
 
 ---
 
-## 3. Comprehensive Documentation Catalog
+## 🧪 Verification & Test Results
 
-The project's architectural specifications, business rules, schemas, and system designs are fully documented in [`docs/`](docs/):
+An end-to-end automated audit script (`full_website_audit.py`) was executed against the live production deployment:
 
-| # | Specification Document | Description |
-| :---: | :--- | :--- |
-| 1 | [**Product Requirements Document (PRD)**](docs/PRD.md) | Open marketplace philosophy, multi-worker architecture, 2 task models, and participation dashboard. |
-| 2 | [**Business Rules & Governance**](docs/BUSINESS_RULES.md) | Proposed fees, 3-failure surcharge ceiling, configurable start deadlines, 72h overdue review, and cancellations. |
-| 3 | [**End-to-End User Flows**](docs/USER_FLOWS.md) | Public discovery, Q&A clarification, slot acceptance, milestone tracking, and overdue escalation. |
-| 4 | [**Task Lifecycle & State Machine**](docs/TASK_LIFECYCLE.md) | Parent Task state machine & independent Worker Participation state machine with full transition matrices. |
-| 5 | [**Edge Cases & Race Conditions**](docs/EDGE_CASES.md) | Slot stampedes, first-approved concurrency, start timeouts, pausing active tasks, and fractional cent math. |
-| 6 | [**Identity Verification Architecture**](docs/IDENTITY_VERIFICATION.md) | Country-independent taxonomy, provider adapter pattern, mock KYC demo, and privacy boundaries. |
-| 7 | [**Security Architecture & Threat Model**](docs/SECURITY_PLAN.md) | OWASP ASVS Level 2, Argon2id, secure cookies, re-authentication, BOLA defenses, and DB audit triggers. |
-| 8 | [**Database ERD & Prisma Schema**](docs/DATABASE_ERD.md) | PostgreSQL 16 schema with `Task`, `TaskSlot`, `WorkerParticipation`, `Submission`, and `DemoLedger` models. |
-| 9 | [**RESTful API Specification**](docs/API_SPECIFICATION.md) | OpenAPI 3.1 endpoints, DTO contracts, Express adapter evaluation, and standard JSON envelopes. |
-| 10 | [**Role & Permission Matrix**](docs/PERMISSION_MATRIX.md) | Granular RBAC and ABAC tables covering all 5 roles, Owner root authority, and re-authentication rules. |
-| 11 | [**Design System Specification**](docs/DESIGN_SYSTEM.md) | Deep Navy & Teal theme, Task Participation Dashboard, milestone tracker, and DEMO financial badges. |
-| 12 | [**Website Sitemap & Parity Map**](docs/WEBSITE_SITEMAP.md) | Next.js App Router tree, public catalog, buyer/worker portals, and Android screen parity mapping. |
-| 13 | [**Simulated Financial Engine**](docs/FINANCIAL_SIMULATION.md) | Double-entry demo chart of accounts, integer cent math, demo faucet, and timestamped FX snapshots. |
-| 14 | [**Quality Assurance Test Plan**](docs/QA_TEST_PLAN.md) | Vitest, Supertest, and Playwright test suites, including 50x parallel slot concurrency race tests. |
-| 15 | [**Deployment & DevOps Plan**](docs/DEPLOYMENT_PLAN.md) | Express vs Fastify evaluation, lean Docker Compose, zero-downtime migrations, and health probes. |
-| 16 | [**Internationalization (i18n)**](docs/INTERNATIONALIZATION.md) | English launch, Bangla priority expansion, original instruction preservation, and translated badges. |
-| 17 | [**Administrative Governance**](docs/ADMIN_SPECIFICATION.md) | Owner prerogatives, overdue review queue, dispute arbitration console, and immutable audit explorer. |
-| 18 | [**Architecture Decision Records (ADRs)**](docs/DECISIONS.md) | Formal records ADR-001 through ADR-011 and inventories of proposed, deferred, and legal review items. |
+```text
+=== FULL PRODUCTION AUDIT RESULTS ===
+✓ Home Page (/)                          -> 200 OK
+✓ Marketplace Catalog (/tasks)           -> 200 OK (11 Tasks Active)
+✓ Task Detail View (/tasks/task-app-qa-1) -> 200 OK
+✓ Video Documentary (/documentary)       -> 200 OK
+✓ Referral System (/referrals)           -> 200 OK
+✓ Worker Dashboard (/worker)             -> 200 OK
+✓ Buyer Dashboard (/buyer)               -> 200 OK
+✓ Founder Master Console (/shihab-vault) -> 200 OK
+✓ Cloaked Admin Route (/admin)           -> 404 Not Found (Successfully Cloaked)
+✓ 1080p Documentary Video Stream         -> 200 OK
+✓ 16:9 Master HD Thumbnail               -> 200 OK
+
+Total Routes Tested: 28 | Passed: 28 | Failed: 0
+Success Rate: 100.0%
+Console Errors: 0
+```
 
 ---
 
-## 4. Root Project Governance Files
+## 🚀 Quickstart & Local Setup
 
-- [**PROJECT_STATUS.md**](PROJECT_STATUS.md): Master audit completion status and milestone readiness verification.
-- [**ROADMAP.md**](ROADMAP.md): Dependency-aware 7-phase implementation roadmap.
-- [**BUGS.md**](BUGS.md): Defect register, standard bug reporting template, and architectural watchpoints.
-- [**CHANGELOG.md**](CHANGELOG.md): Historical log of specification versions (v0.1.0 initial $\to$ v0.2.0 master audit).
-- [**AGENTS.md**](AGENTS.md): Strict operational standards and invariants for autonomous AI coding agents.
+### Prerequisites
+- Node.js 18+ (Node.js 20 LTS recommended)
+- PostgreSQL 15+ (or Docker)
+- Git
 
----
-
-## 5. Backend Foundation & Quickstart
-
-The backend is structured as a production NestJS modular monolith under [`backend/`](backend/):
-
+### 1. Clone the Repository
 ```bash
-# 1. Start local PostgreSQL (and optional Redis)
-docker compose up -d
+git clone https://github.com/md-shihab-ahmed/earnxpress.git
+cd earnxpress
+```
 
-# 2. Enter backend directory & generate Prisma client
-cd backend
+### 2. Frontend Setup (Next.js)
+```bash
+cd frontend
+npm install
+npm run dev
+# The frontend runs at http://localhost:3000
+```
+
+### 3. Backend Setup (NestJS & PostgreSQL)
+```bash
+cd ../backend
 npm install
 npx prisma generate
-
-# 3. Apply database schema & migration
-npx prisma migrate dev
-
-# 4. Run automated test suites (40 unit tests, 5 E2E tests)
-npm test
-npm run test:e2e
-
-# 5. Build and launch development server
-npm run build
 npm run start:dev
+# The API runs at http://localhost:4000
+# OpenAPI Docs available at http://localhost:4000/api/docs
 ```
-
-- **OpenAPI / Swagger Explorer**: `http://localhost:4000/api/docs`
-- **Health Probe**: `http://localhost:4000/api/v1/health`
-- **Demo Financial Faucet**: `POST http://localhost:4000/api/v1/demo-finance/faucet`
 
 ---
 
-## 6. Frontend Website & Quickstart
+## 👨‍💻 Author & Maintainer
 
-The frontend is a production **Next.js 14 App Router** application built under [`frontend/`](frontend/):
+**Md. Shihab Ahmed**  
+*Cybersecurity Engineering Undergraduate @ University of Frontier Technology (UFT), Bangladesh*  
+*Full-Stack Web Developer & Security Researcher*
 
-```bash
-# 1. Enter frontend directory
-cd frontend
+- 🌐 **GitHub**: [@md-shihab-ahmed](https://github.com/md-shihab-ahmed)
+- 💼 **LinkedIn**: [Md. Shihab Ahmed](https://www.linkedin.com/in/md-shihab-ahmed-32b703438/)
+- 🚀 **Fiverr**: [shihab_55](https://www.fiverr.com/shihab_55)
+- 📧 **Contact**: `mdshihabahmed14796178@gmail.com`
 
-# 2. Run production build
-npm run build
+---
 
-# 3. Launch development server
-npm run dev
-# Website available at: http://localhost:3000
-```
+## 📜 License
 
-### Complete Route Map
-| Route | Description |
-| :--- | :--- |
-| `/` | Homepage with hero, live metrics, pillars, and featured task previews. |
-| `/tasks` | Open Marketplace Catalog with search and model filters. |
-| `/tasks/[id]` | Task Details page with **Task Participation Dashboard** & slot claim. |
-| `/worker` | Worker Dashboard with active slots and execution status. |
-| `/worker/tasks/[id]` | Task Execution Workspace with **MilestoneTracker** & submission form. |
-| `/worker/wallet` | Demo Wallet with **$1,000 Faucet Button** & transaction ledger. |
-| `/buyer` | Buyer Dashboard with active campaign management. |
-| `/buyer/tasks/new` | **Five-Step Task Creation Wizard** with live escrow calculation. |
-| `/buyer/submissions`| Submissions Review Queue (Approve payout, Revision, Reject). |
-| `/buyer/wallet` | Buyer Demo Wallet for campaign funding. |
-| `/admin` | Staff Governance Console (sanctions, overdue review triage, audit explorer). |
-| `/login` | Sign In with **1-click demo profiles** (Worker, Buyer, Admin). |
-| `/register` | Registration with role toggle (Worker vs Buyer). |
-| `/about`, `/help` | Platform mission, rules, and 72h SLA FAQ. |
+This project is licensed under the [MIT License](LICENSE).

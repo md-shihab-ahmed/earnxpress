@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 260" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient for Full Banner -->
+    <linearGradient id="fullBgGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#021818" />
+      <stop offset="50%" stop-color="#042322" />
+      <stop offset="100%" stop-color="#021414" />
+    </linearGradient>
+
+    <!-- Icon Background Gradient -->
+    <linearGradient id="iconBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#042020" />
+      <stop offset="50%" stop-color="#0a3c39" />
+      <stop offset="100%" stop-color="#021414" />
+    </linearGradient>
+
+    <!-- Teal Gradient -->
+    <linearGradient id="tealFull" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4" />
+      <stop offset="50%" stop-color="#14b8a6" />
+      <stop offset="100%" stop-color="#0d9488" />
+    </linearGradient>
+
+    <!-- Gold Gradient -->
+    <linearGradient id="goldFull" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="50%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="fullGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="dropShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.5" />
+    </filter>
+  </defs>
+
+  <!-- Banner Background Card -->
+  <rect x="10" y="10" width="980" height="240" rx="32" fill="url(#fullBgGrad)" stroke="#14b8a6" stroke-width="2" stroke-opacity="0.3" filter="url(#dropShadow)" />
+
+  <!-- Left Icon Emblem (Scale 0.38 of 512, offset x: 40, y: 35) -->
+  <g transform="translate(42, 35) scale(0.37)">
+    <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#iconBg)" stroke="#14b8a6" stroke-width="6" stroke-opacity="0.4" />
+    <rect x="36" y="36" width="440" height="440" rx="96" fill="none" stroke="#2dd4bf" stroke-width="2" stroke-opacity="0.2" />
+
+    <!-- Monogram EX -->
+    <!-- Letter 'E' -->
+    <rect x="100" y="148" width="46" height="216" rx="14" fill="url(#tealFull)" filter="url(#fullGlow)" />
+    <rect x="136" y="148" width="94" height="42" rx="12" fill="url(#tealFull)" />
+    <rect x="136" y="235" width="76" height="42" rx="12" fill="url(#tealFull)" />
+    <rect x="136" y="322" width="94" height="42" rx="12" fill="url(#tealFull)" />
+
+    <!-- Letter 'X' with Ascending Arrow -->
+    <path d="M 245 156 C 245 150 252 146 258 150 L 374 354 C 378 360 374 368 366 368 L 332 368 C 326 368 320 364 316 358 L 248 238 Z" fill="#0d9488" fill-opacity="0.95" />
+    <path d="M 252 368 C 244 368 240 360 244 354 L 336 192 L 306 192 C 298 192 294 186 298 180 L 372 136 C 378 132 386 138 384 146 L 368 222 C 366 228 360 230 354 226 L 338 212 L 278 358 C 274 364 268 368 262 368 Z" fill="url(#goldFull)" filter="url(#fullGlow)" />
+    
+    <!-- Sparkle at Arrow Peak -->
+    <circle cx="376" cy="140" r="8" fill="#ffffff" />
+    <path d="M 376 120 L 379 137 L 396 140 L 379 143 L 376 160 L 373 143 L 356 140 L 373 137 Z" fill="#fef08a" />
+  </g>
+
+  <!-- Typography Brandmark -->
+  <!-- "Earn" -->
+  <text x="260" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Montserrat', 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="94" font-weight="900" fill="#ffffff" letter-spacing="-1">
+    Earn
+  </text>
+
+  <!-- "Xpress" with Teal Gradient -->
+  <text x="495" y="142" font-family="-apple-system, BlinkMacSystemFont, 'Montserrat', 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="94" font-weight="900" fill="url(#tealFull)" filter="url(#fullGlow)" letter-spacing="-1">
+    Xpress
+  </text>
+
+  <!-- Accent Sparkle above Xpress -->
+  <path d="M 825 82 L 827 94 L 839 96 L 827 98 L 825 110 L 823 98 L 811 96 L 823 94 Z" fill="#fbbf24" filter="url(#fullGlow)" />
+
+  <!-- Divider Line -->
+  <line x1="262" y1="168" x2="920" y2="168" stroke="#14b8a6" stroke-width="2" stroke-opacity="0.35" />
+
+  <!-- Tagline -->
+  <text x="264" y="202" font-family="-apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="700" fill="#5eead4" letter-spacing="6" opacity="0.95">
+    GLOBAL FREELANCE &amp; MICROTASK MARKETPLACE
+  </text>
+
+  <!-- Currency / Payout Badges (Right Aligned) -->
+  <g transform="translate(850, 42)">
+    <rect x="-110" y="0" width="120" height="28" rx="14" fill="#064e3b" stroke="#10b981" stroke-width="1" />
+    <text x="-50" y="19" font-family="sans-serif" font-size="12" font-weight="800" fill="#34d399" text-anchor="middle" letter-spacing="1">
+      ⚡ INSTANT PAY
+    </text>
+  </g>
+</svg>

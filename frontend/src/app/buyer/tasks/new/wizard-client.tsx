@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
-import { DemoBadge } from '@/components/shared/DemoBadge';
 import {
   CheckCircle2,
   ChevronRight,
@@ -17,12 +16,14 @@ import {
   Plus,
   Trash2,
   Loader2,
+  ShieldCheck,
 } from 'lucide-react';
 
 export function TaskCreationWizard() {
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [buyerPolicyAgreed, setBuyerPolicyAgreed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Form State
@@ -278,7 +279,7 @@ export function TaskCreationWizard() {
 
           <div className="space-y-4">
             <div className="space-y-1 max-w-sm">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Unit Budget Per Worker (DEMO USD)</label>
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">Unit Budget Per Worker (USD)</label>
               <div className="relative">
                 <span className="absolute left-3 top-3 text-slate-400 font-bold">$</span>
                 <input
@@ -297,7 +298,6 @@ export function TaskCreationWizard() {
                   <Coins className="w-4 h-4 text-teal-600" />
                   Escrow Lock Breakdown ({totalSlots} Slots)
                 </span>
-                <DemoBadge size="sm" variant="teal" />
               </div>
 
               <div className="space-y-2 text-xs">
@@ -314,9 +314,9 @@ export function TaskCreationWizard() {
                   <span className="font-mono text-slate-400">${(workerFeeCents / 100).toFixed(2)}/worker</span>
                 </div>
                 <div className="pt-2 border-t border-slate-200 dark:border-navy-700 flex justify-between font-bold text-slate-900 dark:text-white text-sm">
-                  <span>Total Escrow Locked from Demo Wallet:</span>
+                  <span>Total Escrow Reserved:</span>
                   <span className="font-mono text-teal-600 dark:text-teal-400 font-extrabold">
-                    DEMO ${((totalEscrowCents) / 100).toFixed(2)} USD
+                    ${((totalEscrowCents) / 100).toFixed(2)} USD
                   </span>
                 </div>
               </div>
@@ -432,7 +432,7 @@ export function TaskCreationWizard() {
               <div>
                 <span className="text-slate-400">Unit Payout / Slot:</span>
                 <p className="font-bold text-teal-600 dark:text-teal-400 font-mono mt-0.5">
-                  DEMO ${(unitBudgetCents / 100).toFixed(2)} USD
+                  ${(unitBudgetCents / 100).toFixed(2)} USD
                 </p>
               </div>
             </div>
@@ -447,6 +447,32 @@ export function TaskCreationWizard() {
                 ))}
               </ul>
             </div>
+          </div>
+
+          {/* In-Situ Buyer Campaign Rules Notification Card */}
+          <div className="p-4 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 rounded-xl space-y-2.5 text-xs">
+            <div className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5 text-xs">
+              <ShieldCheck className="w-4 h-4 text-teal-600 flex-shrink-0" />
+              Buyer Campaign Policy &amp; Escrow Agreement
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+              <li><strong>Privacy &amp; Security:</strong> Requesting worker passwords, banking credentials, National IDs, or distributing phishing software is strictly prohibited.</li>
+              <li><strong>Fair Evaluation:</strong> Deliverables meeting all acceptance criteria must be approved. Malicious or unjustified rejections will result in account penalties.</li>
+              <li><strong>72-Hour Auto-Clearance:</strong> Submissions unreviewed after 72 hours are automatically approved and settled from campaign escrow.</li>
+              <li><strong>100% Refundable:</strong> You can close this campaign at any time and receive a 100% refund of all unfilled slot funds directly to your wallet.</li>
+            </ul>
+            <label className="flex items-start gap-2.5 pt-2 border-t border-teal-200/60 dark:border-teal-800/40 cursor-pointer text-slate-900 dark:text-white font-semibold select-none">
+              <input
+                type="checkbox"
+                required
+                checked={buyerPolicyAgreed}
+                onChange={(e) => setBuyerPolicyAgreed(e.target.checked)}
+                className="mt-0.5 rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs">
+                I have read, understood, and agree to the EarnXpress Buyer Campaign Guidelines and Escrow Policy. *
+              </span>
+            </label>
           </div>
         </div>
       )}
@@ -483,9 +509,9 @@ export function TaskCreationWizard() {
         ) : (
           <button
             type="button"
-            disabled={loading}
+            disabled={loading || !buyerPolicyAgreed}
             onClick={handlePublish}
-            className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold px-6 py-2.5 rounded-lg shadow-sm transition-all"
+            className="inline-flex items-center gap-2 bg-teal-600 hover:bg-teal-500 disabled:bg-slate-300 dark:disabled:bg-navy-800 disabled:cursor-not-allowed text-white text-xs font-bold px-6 py-2.5 rounded-lg shadow-sm transition-all"
           >
             {loading ? (
               <>

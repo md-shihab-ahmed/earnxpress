@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { WorkerParticipation } from '@/types';
 import { MilestoneTracker } from '@/components/shared/MilestoneTracker';
+import { WorkspaceChat } from '@/components/shared/WorkspaceChat';
 import { api } from '@/lib/api';
 import {
   Send,
@@ -12,6 +13,7 @@ import {
   Link as LinkIcon,
   AlertCircle,
   History,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface WorkspaceClientProps {
@@ -96,7 +98,7 @@ export function WorkspaceClient({ initialParticipation }: WorkspaceClientProps) 
         <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 p-4 rounded-xl flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
           <div className="text-xs text-emerald-800 dark:text-emerald-300">
-            <strong>Deliverables Approved!</strong> The Buyer accepted your submission and DEMO payout has been disbursed directly to your wallet.
+            <strong>Deliverables Approved!</strong> The Buyer accepted your submission and your payout has been disbursed directly to your wallet.
           </div>
         </div>
       ) : isAlreadySubmitted ? (
@@ -170,17 +172,29 @@ export function WorkspaceClient({ initialParticipation }: WorkspaceClientProps) 
             </div>
           </div>
 
-          <div className="flex items-start gap-2 pt-1 text-xs text-slate-500">
-            <input
-              type="checkbox"
-              id="attest"
-              required
-              checked={attestationConfirmed}
-              onChange={(e) => setAttestationConfirmed(e.target.checked)}
-              className="mt-0.5 rounded text-teal-600 focus:ring-teal-500"
-            />
-            <label htmlFor="attest">
-              I certify that this submission is original, complete, and satisfies all published acceptance criteria.
+          {/* In-Situ Worker Rules Notification Card */}
+          <div className="p-4 bg-teal-50/80 dark:bg-teal-950/30 border border-teal-200 dark:border-teal-800/60 rounded-xl space-y-2.5 text-xs">
+            <div className="font-bold text-teal-900 dark:text-teal-300 flex items-center gap-1.5 text-xs">
+              <ShieldCheck className="w-4 h-4 text-teal-600 flex-shrink-0" />
+              Task Deliverable Submission Guidelines &amp; Anti-Fraud Policy
+            </div>
+            <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 text-[11px] leading-relaxed">
+              <li><strong>100% Original Work:</strong> Submitting fake, stolen, or duplicate screenshots will lead to immediate and permanent account termination.</li>
+              <li><strong>Acceptance Criteria Compliance:</strong> Verify that your deliverable meets every requirement specified in the task description.</li>
+              <li><strong>72-Hour Escrow Protection:</strong> Buyers have up to 72 hours to evaluate your submission; if unattended, the escrow funds are automatically disbursed to your balance.</li>
+            </ul>
+            <label className="flex items-start gap-2.5 pt-2 border-t border-teal-200/60 dark:border-teal-800/40 cursor-pointer text-slate-900 dark:text-white font-semibold select-none">
+              <input
+                type="checkbox"
+                id="attest"
+                required
+                checked={attestationConfirmed}
+                onChange={(e) => setAttestationConfirmed(e.target.checked)}
+                className="mt-0.5 rounded text-teal-600 focus:ring-teal-500 w-4 h-4 cursor-pointer"
+              />
+              <span className="text-xs">
+                I certify that I have thoroughly completed this work with genuine proof, complying with all EarnXpress submission rules. *
+              </span>
             </label>
           </div>
 
@@ -189,8 +203,8 @@ export function WorkspaceClient({ initialParticipation }: WorkspaceClientProps) 
           {!isApproved && (
             <button
               type="submit"
-              disabled={submitting}
-              className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-sm transition-all flex items-center gap-2"
+              disabled={submitting || !attestationConfirmed}
+              className="bg-teal-600 hover:bg-teal-500 disabled:bg-slate-300 dark:disabled:bg-navy-800 disabled:cursor-not-allowed text-white font-bold text-xs px-6 py-3 rounded-xl shadow-sm transition-all flex items-center gap-2"
             >
               {submitting ? (
                 <>
@@ -241,6 +255,14 @@ export function WorkspaceClient({ initialParticipation }: WorkspaceClientProps) 
           </div>
         </div>
       )}
+
+      {/* In-Task Workspace Direct Chat with Buyer */}
+      <WorkspaceChat
+        taskId={participation.taskId}
+        workerId={participation.workerId}
+        buyerId={participation.task?.buyer?.id || (participation.task as any)?.buyerId || 'buyer-alex'}
+        peerName={participation.task?.buyer?.profile?.displayName || 'Campaign Buyer'}
+      />
     </div>
   );
 }

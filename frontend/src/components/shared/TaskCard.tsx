@@ -1,7 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
 import { Task } from '@/types';
-import { DemoBadge } from './DemoBadge';
 import { Users, Clock, ArrowRight, ShieldCheck, Zap } from 'lucide-react';
 
 interface TaskCardProps {
@@ -38,7 +37,6 @@ export function TaskCard({ task }: TaskCardProps) {
                 </>
               )}
             </span>
-            <DemoBadge size="sm" variant="teal" />
           </div>
 
           {task.category && (

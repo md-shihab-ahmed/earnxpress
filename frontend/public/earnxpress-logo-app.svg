@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#042020" />
+      <stop offset="50%" stop-color="#0a3c39" />
+      <stop offset="100%" stop-color="#021414" />
+    </linearGradient>
+
+    <!-- Teal Gradient for 'E' -->
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#5eead4" />
+      <stop offset="50%" stop-color="#14b8a6" />
+      <stop offset="100%" stop-color="#0f766e" />
+    </linearGradient>
+
+    <!-- Amber Gold Gradient for 'X' and Arrow -->
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="40%" stop-color="#f59e0b" />
+      <stop offset="100%" stop-color="#d97706" />
+    </linearGradient>
+
+    <!-- Gloss Highlight -->
+    <linearGradient id="glossGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.18" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.0" />
+    </linearGradient>
+
+    <!-- Glow Filter -->
+    <filter id="neonGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="shadowFilter" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#000000" flood-opacity="0.6" />
+    </filter>
+  </defs>
+
+  <!-- Base Squircle with Shadow -->
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#bgGrad)" filter="url(#shadowFilter)" stroke="#14b8a6" stroke-width="4" stroke-opacity="0.3" />
+
+  <!-- Inner Subtle Ring -->
+  <rect x="36" y="36" width="440" height="440" rx="96" fill="none" stroke="#2dd4bf" stroke-width="1.5" stroke-opacity="0.2" />
+
+  <!-- Glossy Overlay Top Half -->
+  <path d="M 28 132 C 28 74.4 74.4 28 132 28 L 380 28 C 437.6 28 484 74.4 484 132 L 484 210 C 350 250 160 250 28 210 Z" fill="url(#glossGrad)" />
+
+  <!-- Central Monogram EX Logo -->
+  <g transform="translate(4, 0)">
+    <!-- Letter 'E' (Modern Minimalist High-Tech Slabs) -->
+    <!-- Vertical Backbone -->
+    <rect x="100" y="148" width="46" height="216" rx="14" fill="url(#tealGrad)" filter="url(#neonGlow)" />
+    <!-- Top Arm -->
+    <rect x="136" y="148" width="94" height="42" rx="12" fill="url(#tealGrad)" />
+    <!-- Middle Arm (Slightly shorter for aerodynamic flow) -->
+    <rect x="136" y="235" width="76" height="42" rx="12" fill="url(#tealGrad)" />
+    <!-- Bottom Arm -->
+    <rect x="136" y="322" width="94" height="42" rx="12" fill="url(#tealGrad)" />
+
+    <!-- Letter 'X' (Dynamic Cross with Forward Momentum & Ascending Arrow) -->
+    <!-- Downward Diagonal (Top-Left to Bottom-Right) -->
+    <path d="M 245 156 C 245 150 252 146 258 150 L 374 354 C 378 360 374 368 366 368 L 332 368 C 326 368 320 364 316 358 L 248 238 Z" fill="#0d9488" fill-opacity="0.95" />
+
+    <!-- Upward Ascending Diagonal with Rocket/Arrow Peak (Bottom-Left to Top-Right) -->
+    <!-- The upward stroke transforms into a growth arrow pointing towards top-right -->
+    <path d="M 252 368 C 244 368 240 360 244 354 L 336 192 L 306 192 C 298 192 294 186 298 180 L 372 136 C 378 132 386 138 384 146 L 368 222 C 366 228 360 230 354 226 L 338 212 L 278 358 C 274 364 268 368 262 368 Z" fill="url(#goldGrad)" filter="url(#neonGlow)" />
+    
+    <!-- Gold Sparkle / Star at Arrow Tip -->
+    <circle cx="376" cy="140" r="7" fill="#ffffff" />
+    <path d="M 376 124 L 378 138 L 392 140 L 378 142 L 376 156 L 374 142 L 360 140 L 374 138 Z" fill="#fef08a" />
+  </g>
+
+  <!-- Bottom Platform Tagline -->
+  <text x="256" y="442" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="20" font-weight="800" letter-spacing="7" fill="#5eead4" text-anchor="middle" opacity="0.9">
+    EARNXPRESS
+  </text>
+</svg>
