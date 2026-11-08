@@ -2,10 +2,10 @@ import { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'EarnXpress - Earn Money Online & Microtasks',
+    name: 'EarnXpress — Full-Stack Freelance Task Marketplace',
     short_name: 'EarnXpress',
     description:
-      'Earn money online by completing simple microtasks, data annotation, app testing, and surveys with instant Binance Pay & bKash payouts.',
+      'Verified crowdsourcing and freelance micro-task platform with automated escrow protection and instant payouts.',
     start_url: '/',
     display: 'standalone',
     background_color: '#0f172a',
